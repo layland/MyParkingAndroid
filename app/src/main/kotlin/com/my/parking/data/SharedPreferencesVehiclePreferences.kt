@@ -1,0 +1,49 @@
+package com.my.parking.data
+
+import android.content.Context
+import com.my.parking.domain.VehicleNumber
+import com.my.parking.domain.VehiclePreferences
+
+/** Stores only the non-secret default vehicle number. Authentication is not stored here. */
+class SharedPreferencesVehiclePreferences(context: Context) : VehiclePreferences {
+    private val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+
+    override fun defaultVehicleNumber(): String? = preferences.getString(KEY_DEFAULT_VEHICLE, null)
+
+    override fun vehicleNumbers(): List<String> {
+        val numbers = preferences.getStringSet(KEY_VEHICLE_NUMBERS, emptySet()).orEmpty().toMutableSet()
+        defaultVehicleNumber()?.let(numbers::add)
+        val default = defaultVehicleNumber()
+        return numbers.sorted().let { savedNumbers ->
+            if (default != null && default in savedNumbers) listOf(default) + savedNumbers.filterNot { it == default }
+            else savedNumbers
+        }
+    }
+
+    override fun saveDefaultVehicleNumber(vehicleNumber: VehicleNumber) {
+        val numbers = vehicleNumbers().toMutableSet().apply { add(vehicleNumber.value) }
+        preferences.edit()
+            .putStringSet(KEY_VEHICLE_NUMBERS, numbers)
+            .putString(KEY_DEFAULT_VEHICLE, vehicleNumber.value)
+            .apply()
+    }
+
+    override fun removeVehicleNumber(vehicleNumber: VehicleNumber) {
+        val numbers = vehicleNumbers().toMutableSet().apply { remove(vehicleNumber.value) }
+        val nextDefault = defaultVehicleNumber()?.takeUnless { it == vehicleNumber.value }
+            ?: numbers.sorted().firstOrNull()
+        preferences.edit()
+            .putStringSet(KEY_VEHICLE_NUMBERS, numbers)
+            .apply {
+                if (nextDefault == null) remove(KEY_DEFAULT_VEHICLE)
+                else putString(KEY_DEFAULT_VEHICLE, nextDefault)
+            }
+            .apply()
+    }
+
+    private companion object {
+        const val PREFERENCES_NAME = "vehicle_preferences"
+        const val KEY_DEFAULT_VEHICLE = "default_vehicle"
+        const val KEY_VEHICLE_NUMBERS = "vehicle_numbers"
+    }
+}
