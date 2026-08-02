@@ -16,15 +16,18 @@ import com.my.parking.MyParkingApplication
 import com.my.parking.R
 import com.my.parking.domain.ReservationDate
 import com.my.parking.domain.ReservationDraft
+import com.my.parking.domain.ReservationPeriod
 import com.my.parking.domain.VehicleNumber
 import com.my.parking.domain.VehiclePreferences
 import java.time.LocalDate
 
 /** Entry screen for choosing the reservation date and vehicle number. */
 class MainActivity : AppCompatActivity() {
-    private var selectedDate = ReservationDate.today()
+    private var selectedStartDate = ReservationDate.today()
+    private var selectedEndDate = ReservationDate.today()
     private var savedVehicleNumbers = emptyList<String>()
-    private lateinit var dateValue: TextView
+    private lateinit var startDateValue: TextView
+    private lateinit var endDateValue: TextView
     private lateinit var statusMessage: TextView
     private lateinit var registerButton: Button
     private lateinit var vehicleNumberInput: EditText
@@ -35,7 +38,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        dateValue = findViewById(R.id.reservation_date_value)
+        startDateValue = findViewById(R.id.reservation_start_date_value)
+        endDateValue = findViewById(R.id.reservation_end_date_value)
         statusMessage = findViewById(R.id.status_message)
         registerButton = findViewById(R.id.register_button)
         vehicleNumberInput = findViewById(R.id.vehicle_number_input)
@@ -43,11 +47,14 @@ class MainActivity : AppCompatActivity() {
         vehiclePreferences = (application as MyParkingApplication).appContainer.vehiclePreferences
         configureSavedVehicleSpinner()
         renderSavedVehicles()
-        renderDate()
+        renderDates()
 
-        findViewById<View>(R.id.today_button).setOnClickListener { selectDate(LocalDate.now()) }
-        findViewById<View>(R.id.tomorrow_button).setOnClickListener { selectDate(LocalDate.now().plusDays(1)) }
-        findViewById<View>(R.id.select_date_button).setOnClickListener { showDatePicker() }
+        findViewById<View>(R.id.select_start_date_button).setOnClickListener {
+            showDatePicker(selectedStartDate.value, ::selectStartDate)
+        }
+        findViewById<View>(R.id.select_end_date_button).setOnClickListener {
+            showDatePicker(selectedEndDate.value, ::selectEndDate)
+        }
         findViewById<View>(R.id.save_vehicle_button).setOnClickListener { saveVehicleNumber() }
         findViewById<View>(R.id.delete_vehicle_button).setOnClickListener { deleteVehicleNumber() }
         registerButton.setOnClickListener { prepareReservation() }
@@ -84,29 +91,39 @@ class MainActivity : AppCompatActivity() {
         savedVehicleSpinner.setSelection(savedVehicleNumbers.indexOf(selectedVehicle).coerceAtLeast(0))
     }
 
-    private fun showDatePicker() {
-        val current = selectedDate.value
+    private fun showDatePicker(current: LocalDate, onDateSelected: (LocalDate) -> Unit) {
         DatePickerDialog(
             this,
-            { _, year, month, day -> selectDate(LocalDate.of(year, month + 1, day)) },
+            { _, year, month, day -> onDateSelected(LocalDate.of(year, month + 1, day)) },
             current.year,
             current.monthValue - 1,
             current.dayOfMonth,
         ).show()
     }
 
-    private fun selectDate(date: LocalDate) {
+    private fun selectStartDate(date: LocalDate) {
         runCatching { ReservationDate.of(date) }
             .onSuccess {
-                selectedDate = it
-                renderDate()
+                selectedStartDate = it
+                renderDates()
                 statusMessage.visibility = View.GONE
             }
             .onFailure { showError(it.message ?: getString(R.string.unknown_error)) }
     }
 
-    private fun renderDate() {
-        dateValue.text = selectedDate.displayText()
+    private fun selectEndDate(date: LocalDate) {
+        runCatching { ReservationDate.of(date) }
+            .onSuccess {
+                selectedEndDate = it
+                renderDates()
+                statusMessage.visibility = View.GONE
+            }
+            .onFailure { showError(it.message ?: getString(R.string.unknown_error)) }
+    }
+
+    private fun renderDates() {
+        startDateValue.text = selectedStartDate.displayText()
+        endDateValue.text = selectedEndDate.displayText()
     }
 
     private fun saveVehicleNumber() {
@@ -136,7 +153,7 @@ class MainActivity : AppCompatActivity() {
         runCatching {
             ReservationDraft(
                 vehicleNumber = VehicleNumber.of(vehicleNumberInput.text.toString()),
-                reservationDate = selectedDate,
+                reservationPeriod = ReservationPeriod.of(selectedStartDate, selectedEndDate),
             )
         }.onSuccess { draft ->
             vehiclePreferences.saveDefaultVehicleNumber(draft.vehicleNumber)

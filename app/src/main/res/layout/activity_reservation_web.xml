@@ -9,7 +9,7 @@
         android:layout_height="wrap_content"
         android:background="#E8F0FE"
         android:padding="12dp"
-        android:text="로그인 후 날짜와 차량번호를 자동 입력하고 등록합니다."
+        android:text="로그인 후 예약 내용을 확인하면 공식 사이트에 등록 요청을 보냅니다."
         android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
 
     <TextView
@@ -18,7 +18,7 @@
         android:layout_height="wrap_content"
         android:background="#E8F0FE"
         android:padding="12dp"
-        android:text="등록 버튼을 눌렀습니다. 서버의 결과를 확인하세요."
+        android:text="서버 응답을 확인하고 있습니다."
         android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
         android:visibility="gone" />
 
