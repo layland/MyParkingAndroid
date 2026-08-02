@@ -11,6 +11,7 @@ import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -37,12 +38,34 @@ class MainActivity : AppCompatActivity() {
     private lateinit var durationSpinner: Spinner
     private lateinit var statusMessage: TextView
     private lateinit var registerButton: Button
+    private lateinit var remainingTimeValue: TextView
+    private lateinit var refreshRemainingTimeButton: Button
     private lateinit var visitorNameInput: EditText
     private lateinit var vehicleNumberInput: EditText
     private lateinit var savedVehicleSpinner: Spinner
     private lateinit var vehicleManagementContent: View
     private lateinit var vehicleManagementToggle: Button
     private lateinit var vehiclePreferences: VehiclePreferences
+    private var remainingTimeRefreshInProgress = false
+    private val remainingTimeRefresh = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { activityResult ->
+        remainingTimeRefreshInProgress = false
+        refreshRemainingTimeButton.isEnabled = true
+        when (activityResult.data?.getStringExtra(RemainingTimeActivity.EXTRA_STATUS)) {
+            RemainingTimeActivity.STATUS_AVAILABLE -> {
+                remainingTimeValue.text = "남은 시간: ${activityResult.data?.getStringExtra(RemainingTimeActivity.EXTRA_VALUE)}"
+            }
+            RemainingTimeActivity.STATUS_LOGIN_REQUIRED -> {
+                remainingTimeValue.text = "남은 시간: 공식 사이트 로그인 후 확인할 수 있어요."
+            }
+            RemainingTimeActivity.STATUS_NETWORK_ERROR -> {
+                remainingTimeValue.text = "남은 시간: 네트워크 오류로 확인하지 못했어요."
+            }
+            else -> remainingTimeValue.text = "남은 시간: 현재 정보를 확인할 수 없어요."
+        }
+        refreshRemainingTimeButton.text = "새로고침"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +77,8 @@ class MainActivity : AppCompatActivity() {
         durationSpinner = findViewById(R.id.reservation_duration_spinner)
         statusMessage = findViewById(R.id.status_message)
         registerButton = findViewById(R.id.register_button)
+        remainingTimeValue = findViewById(R.id.remaining_time_value)
+        refreshRemainingTimeButton = findViewById(R.id.refresh_remaining_time_button)
         visitorNameInput = findViewById(R.id.visitor_name_input)
         vehicleNumberInput = findViewById(R.id.vehicle_number_input)
         savedVehicleSpinner = findViewById(R.id.saved_vehicle_spinner)
@@ -78,6 +103,7 @@ class MainActivity : AppCompatActivity() {
             )
         }
         findViewById<View>(R.id.save_vehicle_button).setOnClickListener { saveVehicleNumber() }
+        refreshRemainingTimeButton.setOnClickListener { refreshRemainingTime() }
         findViewById<View>(R.id.delete_vehicle_button).setOnClickListener { deleteVehicleNumber() }
         vehicleManagementToggle.setOnClickListener { toggleVehicleManagement() }
         registerButton.setOnClickListener { prepareReservation() }
@@ -220,8 +246,18 @@ class MainActivity : AppCompatActivity() {
                 vehiclePreferences.saveReservationDraft(draft)
                 renderSavedVehicles(draft.vehicleNumber.value)
                 showStatus(getString(R.string.vehicle_and_period_saved_message), R.drawable.bg_status_success)
+                refreshRemainingTime()
             }
             .onFailure { showError(it.message ?: getString(R.string.unknown_error)) }
+    }
+
+    private fun refreshRemainingTime() {
+        if (remainingTimeRefreshInProgress) return
+        remainingTimeRefreshInProgress = true
+        remainingTimeValue.text = "남은 시간: 확인 중…"
+        refreshRemainingTimeButton.isEnabled = false
+        refreshRemainingTimeButton.text = "조회 중"
+        remainingTimeRefresh.launch(RemainingTimeActivity.intentFor(this))
     }
 
     private fun deleteVehicleNumber() {

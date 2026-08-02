@@ -19,6 +19,10 @@
             android:name=".ui.ReservationWebActivity"
             android:exported="false" />
         <activity
+            android:name=".ui.RemainingTimeActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyParking.RemainingTime" />
+        <activity
             android:name=".ui.MainActivity"
             android:exported="true">
             <intent-filter>
