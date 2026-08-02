@@ -9,7 +9,7 @@ sealed interface RemainingTimeResult {
 }
 
 object RemainingTimeText {
-    private val displayPattern = Regex("^\\d{1,4}시간 \\d{1,2}분 남음$")
+    private val displayPattern = Regex("^\\d{1,4}\\uC2DC\\uAC04 \\d{1,2}\\uBD84 \\uB0A8\\uC74C$")
 
     fun fromDisplayedText(value: String?): RemainingTimeResult {
         val normalized = value?.trim()?.replace(Regex("\\s+"), " ").orEmpty()

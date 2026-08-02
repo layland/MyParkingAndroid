@@ -17,6 +17,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.core.widget.doAfterTextChanged
+import androidx.core.view.GravityCompat
+import androidx.drawerlayout.widget.DrawerLayout
+import com.google.android.material.textfield.TextInputLayout
+import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.my.parking.MyParkingApplication
 import com.my.parking.R
 import com.my.parking.domain.ReservationDate
@@ -41,13 +46,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var registerButton: Button
     private lateinit var remainingTimeValue: TextView
     private lateinit var refreshRemainingTimeButton: Button
-    private lateinit var visitorNameInput: EditText
+    private lateinit var mainToolbar: com.google.android.material.appbar.MaterialToolbar
+    private lateinit var mainDrawer: DrawerLayout
+    private lateinit var visitorNameInput: MaterialAutoCompleteTextView
     private lateinit var vehicleNumberInput: EditText
     private lateinit var savedVehicleSpinner: Spinner
     private lateinit var vehicleManagementContent: View
     private lateinit var vehicleManagementToggle: Button
     private lateinit var vehiclePreferences: VehiclePreferences
     private var remainingTimeRefreshInProgress = false
+    private var lastVehicleNumberText = ""
     private val remainingTimeRefresh = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { activityResult ->
@@ -71,7 +79,9 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        mainDrawer = findViewById(R.id.main_drawer)
         findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.main_toolbar).also { toolbar ->
+            mainToolbar = toolbar
             applyStatusBarInset(toolbar)
             toolbar.setOnMenuItemClickListener(::onToolbarItemSelected)
         }
@@ -83,11 +93,16 @@ class MainActivity : AppCompatActivity() {
         registerButton = findViewById(R.id.register_button)
         remainingTimeValue = findViewById(R.id.remaining_time_value)
         refreshRemainingTimeButton = findViewById(R.id.refresh_remaining_time_button)
+        mainToolbar.subtitle = remainingTimeValue.text
+        remainingTimeValue.doAfterTextChanged { mainToolbar.subtitle = it }
+        (remainingTimeValue.parent.parent as View).visibility = View.GONE
         visitorNameInput = findViewById(R.id.visitor_name_input)
         vehicleNumberInput = findViewById(R.id.vehicle_number_input)
-        savedVehicleSpinner = findViewById(R.id.saved_vehicle_spinner)
+        lastVehicleNumberText = vehicleNumberInput.text.toString()
+        savedVehicleSpinner = findViewById(R.id.drawer_saved_vehicle_spinner)
         vehicleManagementContent = findViewById(R.id.vehicle_management_content)
         vehicleManagementToggle = findViewById(R.id.vehicle_management_toggle)
+        (vehicleManagementToggle.parent.parent as View).visibility = View.GONE
         vehiclePreferences = (application as MyParkingApplication).appContainer.vehiclePreferences
         configureDurationSpinner()
         configureSavedVehicleSpinner()
@@ -106,17 +121,36 @@ class MainActivity : AppCompatActivity() {
                 ::selectEndDate,
             )
         }
-        findViewById<View>(R.id.save_vehicle_button).setOnClickListener { saveVehicleNumber() }
+        findViewById<TextInputLayout>(R.id.visitor_name_layout).setEndIconOnClickListener {
+            saveVehicleNumber()
+        }
+        vehicleNumberInput.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) vehicleNumberInput.selectAll()
+        }
+        vehicleNumberInput.setOnClickListener { vehicleNumberInput.selectAll() }
+        vehicleNumberInput.doAfterTextChanged { editable ->
+            val currentVehicleNumber = editable?.toString().orEmpty()
+            if (currentVehicleNumber != lastVehicleNumberText) visitorNameInput.text?.clear()
+            lastVehicleNumberText = currentVehicleNumber
+        }
         refreshRemainingTimeButton.setOnClickListener { refreshRemainingTime() }
-        findViewById<View>(R.id.delete_vehicle_button).setOnClickListener { deleteVehicleNumber() }
-        vehicleManagementToggle.setOnClickListener { toggleVehicleManagement() }
+        findViewById<View>(R.id.drawer_delete_vehicle_button).setOnClickListener { deleteVehicleNumber() }
         registerButton.setOnClickListener { prepareReservation() }
         findViewById<View>(R.id.open_reservation_site_button).setOnClickListener {
             startActivity(Intent(this, ReservationWebActivity::class.java))
         }
+        refreshRemainingTime()
     }
 
     private fun onToolbarItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        R.id.open_vehicle_drawer -> {
+            mainDrawer.openDrawer(GravityCompat.END)
+            true
+        }
+        R.id.refresh_remaining_time -> {
+            refreshRemainingTime()
+            true
+        }
         R.id.open_reservation_history -> {
             startActivity(Intent(this, ReservationHistoryActivity::class.java))
             true
@@ -133,8 +167,7 @@ class MainActivity : AppCompatActivity() {
                         vehiclePreferences.saveDefaultVehicleNumber(vehicleNumber)
                         visitorNameInput.setText(vehiclePreferences.visitorNameFor(vehicleNumber)?.value.orEmpty())
                         selectedStartDate = ReservationDate.today()
-                        selectedDurationOption = vehiclePreferences.reservationDurationOptionFor(vehicleNumber)
-                            ?: ReservationDurationOption.ONE_DAY
+                        selectedDurationOption = ReservationDurationOption.ONE_DAY
                         selectedEndDate = null
                         renderDates()
                     }
@@ -175,17 +208,34 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderSavedVehicles(selectedVehicle: String? = vehiclePreferences.defaultVehicleNumber()) {
         savedVehicleNumbers = vehiclePreferences.vehicleNumbers()
-        findViewById<View>(R.id.saved_vehicle_label).visibility =
+        findViewById<View>(R.id.drawer_saved_vehicle_label).visibility =
             if (savedVehicleNumbers.isEmpty()) View.GONE else View.VISIBLE
         savedVehicleSpinner.visibility = if (savedVehicleNumbers.isEmpty()) View.GONE else View.VISIBLE
-        if (savedVehicleNumbers.isEmpty()) return
+        if (savedVehicleNumbers.isEmpty()) {
+            visitorNameInput.setAdapter(
+                ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, emptyList<String>()),
+            )
+            return
+        }
 
         val vehicleLabels = savedVehicleNumbers.map { savedVehicle ->
             val name = VehicleNumber.of(savedVehicle)
                 .let(vehiclePreferences::visitorNameFor)
                 ?.value
                 .orEmpty()
-            if (name.isBlank()) savedVehicle else "$savedVehicle ($name)"
+            if (name.isBlank()) VehicleNumber.of(savedVehicle).masked() else "$name · ${VehicleNumber.of(savedVehicle).masked()}"
+        }
+        val vehicleByLabel = vehicleLabels.zip(savedVehicleNumbers).toMap()
+        visitorNameInput.setAdapter(
+            ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, vehicleLabels),
+        )
+        visitorNameInput.setOnClickListener {
+            if (savedVehicleNumbers.isNotEmpty()) visitorNameInput.showDropDown()
+        }
+        visitorNameInput.setOnItemClickListener { parent, _, position, _ ->
+            (parent.getItemAtPosition(position) as? String)
+                ?.let(vehicleByLabel::get)
+                ?.let(::loadSavedVehicle)
         }
         savedVehicleSpinner.adapter = ArrayAdapter(
             this,
@@ -193,6 +243,18 @@ class MainActivity : AppCompatActivity() {
             vehicleLabels,
         ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
         savedVehicleSpinner.setSelection(savedVehicleNumbers.indexOf(selectedVehicle).coerceAtLeast(0))
+    }
+
+    private fun loadSavedVehicle(selectedVehicle: String) {
+        vehicleNumberInput.setText(selectedVehicle)
+        VehicleNumber.of(selectedVehicle).let { vehicleNumber ->
+            vehiclePreferences.saveDefaultVehicleNumber(vehicleNumber)
+            visitorNameInput.setText(vehiclePreferences.visitorNameFor(vehicleNumber)?.value.orEmpty(), false)
+            selectedStartDate = ReservationDate.today()
+            selectedDurationOption = ReservationDurationOption.ONE_DAY
+            selectedEndDate = null
+            renderDates()
+        }
     }
 
     private fun showDatePicker(

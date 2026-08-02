@@ -19,6 +19,7 @@ import org.json.JSONTokener
 class RemainingTimeActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private var completed = false
+    private var remainingTimeReadAttempts = 0
     private val timeoutHandler = Handler(Looper.getMainLooper())
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -48,7 +49,12 @@ class RemainingTimeActivity : AppCompatActivity() {
         webView.evaluateJavascript(READ_REMAINING_TIME_SCRIPT) { rawResult ->
             val result = runCatching { resultFromScript(rawResult) }
                 .getOrDefault(RemainingTimeResult.Unavailable)
-            finishWith(result)
+            if (result == RemainingTimeResult.Unavailable && remainingTimeReadAttempts < MAX_READ_ATTEMPTS) {
+                remainingTimeReadAttempts++
+                timeoutHandler.postDelayed(::readRemainingTime, RETRY_DELAY_MILLIS)
+            } else {
+                finishWith(result)
+            }
         }
     }
 
@@ -91,6 +97,8 @@ class RemainingTimeActivity : AppCompatActivity() {
     companion object {
         private const val RESERVATION_URL = "http://srym2.iptime.org/nxpmsc/book-car"
         private const val REQUEST_TIMEOUT_MILLIS = 15_000L
+        private const val RETRY_DELAY_MILLIS = 500L
+        private const val MAX_READ_ATTEMPTS = 10
         const val EXTRA_STATUS = "remaining_time_status"
         const val EXTRA_VALUE = "remaining_time_value"
         const val STATUS_AVAILABLE = "available"
@@ -103,8 +111,8 @@ class RemainingTimeActivity : AppCompatActivity() {
               if (document.querySelector('input[type=password]')) {
                 return JSON.stringify({ status: 'login_required' });
               }
-              const item = document.querySelector(
-                'li.nav-item[data-original-title="충전 잔여시간"] .nav-link-text'
+              const item = Array.from(document.querySelectorAll('.nav-link-text')).find(element =>
+                /^\\d{1,4}\\s*\\uC2DC\\uAC04\\s*\\d{1,2}\\s*\\uBD84\\s*\\uB0A8\\uC74C$/.test(element.textContent.trim())
               );
               return JSON.stringify(
                 item ? { status: 'available', value: item.textContent.trim() } : { status: 'unavailable' }

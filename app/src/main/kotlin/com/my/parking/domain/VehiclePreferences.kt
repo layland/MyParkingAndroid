@@ -12,7 +12,5 @@ interface VehiclePreferences {
 
     fun visitorNameFor(vehicleNumber: VehicleNumber): VisitorName?
 
-    fun reservationDurationOptionFor(vehicleNumber: VehicleNumber): ReservationDurationOption?
-
     fun removeVehicleNumber(vehicleNumber: VehicleNumber)
 }

@@ -2,12 +2,9 @@ package com.my.parking.data
 
 import android.content.Context
 import com.my.parking.domain.ReservationDraft
-import com.my.parking.domain.ReservationDurationOption
 import com.my.parking.domain.VehicleNumber
 import com.my.parking.domain.VehiclePreferences
 import com.my.parking.domain.VisitorName
-import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 
 /** Stores only the non-secret default vehicle number. Authentication is not stored here. */
 class SharedPreferencesVehiclePreferences(context: Context) : VehiclePreferences {
@@ -39,11 +36,6 @@ class SharedPreferencesVehiclePreferences(context: Context) : VehiclePreferences
             .putStringSet(KEY_VEHICLE_NUMBERS, numbers)
             .putString(KEY_DEFAULT_VEHICLE, draft.vehicleNumber.value)
             .putString(nameKey(draft.vehicleNumber), draft.visitorName.value)
-            .putString(
-                periodKey(draft.vehicleNumber),
-                draft.durationOption?.storageValue
-                    ?: "${draft.reservationPeriod.startDate.value}|${draft.reservationPeriod.endDate.value}",
-            )
             .apply()
     }
 
@@ -51,16 +43,6 @@ class SharedPreferencesVehiclePreferences(context: Context) : VehiclePreferences
         preferences.getString(nameKey(vehicleNumber), null)?.let { rawName ->
             runCatching { VisitorName.of(rawName) }.getOrNull()
         }
-
-    override fun reservationDurationOptionFor(vehicleNumber: VehicleNumber): ReservationDurationOption? {
-        val storedPeriod = preferences.getString(periodKey(vehicleNumber), null) ?: return null
-        ReservationDurationOption.fromStorageValue(storedPeriod)?.let { return it }
-        val dates = storedPeriod.split('|')
-        if (dates.size != 2) return null
-        return runCatching {
-            (ChronoUnit.DAYS.between(LocalDate.parse(dates[0]), LocalDate.parse(dates[1])) + 1).toInt()
-        }.getOrNull()?.toString()?.let(ReservationDurationOption::fromStorageValue)
-    }
 
     override fun removeVehicleNumber(vehicleNumber: VehicleNumber) {
         val numbers = vehicleNumbers().toMutableSet().apply { remove(vehicleNumber.value) }

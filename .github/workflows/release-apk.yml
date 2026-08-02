@@ -10,18 +10,27 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     concurrency:
-      group: release-apk-${{ github.sha }}
+      group: release-apk
       cancel-in-progress: false
 
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Read app version
+      - name: Calculate next release version
         id: app_version
         run: |
-          VERSION_NAME=$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' app/build.gradle.kts | head -n 1)
-          test -n "$VERSION_NAME"
+          LATEST_TAG=$(git tag --list --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+$' | head -n 1)
+          if [ -z "$LATEST_TAG" ]; then
+            VERSION_NAME="1.0"
+          else
+            VERSION_NAME=${LATEST_TAG#v}
+            MAJOR_VERSION=${VERSION_NAME%%.*}
+            MINOR_VERSION=${VERSION_NAME#*.}
+            VERSION_NAME="$MAJOR_VERSION.$((MINOR_VERSION + 1))"
+          fi
           echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK
@@ -43,6 +52,8 @@ jobs:
           MY_PARKING_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           MY_PARKING_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           MY_PARKING_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          MY_PARKING_VERSION_NAME: ${{ steps.app_version.outputs.name }}
+          MY_PARKING_VERSION_CODE: ${{ github.run_number }}
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon

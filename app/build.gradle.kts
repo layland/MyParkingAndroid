@@ -12,8 +12,8 @@ android {
         applicationId = "com.my.parking"
         minSdk = 33
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = System.getenv("MY_PARKING_VERSION_CODE")?.toIntOrNull() ?: 1
+        versionName = System.getenv("MY_PARKING_VERSION_NAME") ?: "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
