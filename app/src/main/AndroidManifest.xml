@@ -16,6 +16,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyParking">
         <activity
+            android:name=".ui.ReservationHistoryActivity"
+            android:exported="false" />
+        <activity
             android:name=".ui.ReservationWebActivity"
             android:exported="false" />
         <activity

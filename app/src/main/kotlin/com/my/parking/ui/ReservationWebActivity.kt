@@ -13,10 +13,12 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.appbar.MaterialToolbar
+import com.my.parking.MyParkingApplication
 import com.my.parking.R
 import com.my.parking.data.ReservationPostContract
 import com.my.parking.data.ReservationSubmissionGate
 import com.my.parking.data.ReservationSubmissionResult
+import com.my.parking.data.historyStatus
 import com.my.parking.domain.ReservationDate
 import com.my.parking.domain.ReservationDraft
 import com.my.parking.domain.ReservationDurationOption
@@ -126,6 +128,10 @@ class ReservationWebActivity : AppCompatActivity() {
         }.getOrElse {
             ReservationSubmissionResult.Failure(getString(R.string.reservation_result_unknown))
         }
+        (application as MyParkingApplication).appContainer.reservationHistoryRepository.record(
+            draft = draft,
+            status = result.historyStatus(),
+        )
 
         when (result) {
             is ReservationSubmissionResult.Success -> showMessage(result.message.ifBlank { getString(R.string.reservation_success_message) })

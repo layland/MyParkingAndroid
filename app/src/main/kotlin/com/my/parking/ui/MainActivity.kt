@@ -3,6 +3,7 @@ package com.my.parking.ui
 import android.app.DatePickerDialog
 import android.content.Intent
 import android.os.Bundle
+import android.view.MenuItem
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -70,7 +71,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        applyStatusBarInset(findViewById(R.id.main_toolbar))
+        findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.main_toolbar).also { toolbar ->
+            applyStatusBarInset(toolbar)
+            toolbar.setOnMenuItemClickListener(::onToolbarItemSelected)
+        }
 
         startDateValue = findViewById(R.id.reservation_start_date_value)
         endDateValue = findViewById(R.id.reservation_end_date_value)
@@ -110,6 +114,14 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.open_reservation_site_button).setOnClickListener {
             startActivity(Intent(this, ReservationWebActivity::class.java))
         }
+    }
+
+    private fun onToolbarItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        R.id.open_reservation_history -> {
+            startActivity(Intent(this, ReservationHistoryActivity::class.java))
+            true
+        }
+        else -> false
     }
 
     private fun configureSavedVehicleSpinner() {
