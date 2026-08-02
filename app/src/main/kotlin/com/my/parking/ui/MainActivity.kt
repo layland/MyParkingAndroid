@@ -20,7 +20,6 @@ import androidx.core.view.updatePadding
 import androidx.core.widget.doAfterTextChanged
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
-import com.google.android.material.textfield.TextInputLayout
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.my.parking.MyParkingApplication
 import com.my.parking.R
@@ -28,6 +27,7 @@ import com.my.parking.domain.ReservationDate
 import com.my.parking.domain.ReservationDraft
 import com.my.parking.domain.ReservationDurationOption
 import com.my.parking.domain.ReservationPeriod
+import com.my.parking.domain.RemainingTimeResult
 import com.my.parking.domain.VehicleNumber
 import com.my.parking.domain.VehiclePreferences
 import com.my.parking.domain.VisitorName
@@ -55,6 +55,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var vehicleManagementToggle: Button
     private lateinit var vehiclePreferences: VehiclePreferences
     private var remainingTimeRefreshInProgress = false
+    private lateinit var remainingTimeLoader: RemainingTimeLoader
     private var lastVehicleNumberText = ""
     private val remainingTimeRefresh = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -82,6 +83,7 @@ class MainActivity : AppCompatActivity() {
         mainDrawer = findViewById(R.id.main_drawer)
         findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.main_toolbar).also { toolbar ->
             mainToolbar = toolbar
+            mainToolbar.subtitle = null
             applyStatusBarInset(toolbar)
             toolbar.setOnMenuItemClickListener(::onToolbarItemSelected)
         }
@@ -91,11 +93,10 @@ class MainActivity : AppCompatActivity() {
         durationSpinner = findViewById(R.id.reservation_duration_spinner)
         statusMessage = findViewById(R.id.status_message)
         registerButton = findViewById(R.id.register_button)
-        remainingTimeValue = findViewById(R.id.remaining_time_value)
-        refreshRemainingTimeButton = findViewById(R.id.refresh_remaining_time_button)
-        mainToolbar.subtitle = remainingTimeValue.text
-        remainingTimeValue.doAfterTextChanged { mainToolbar.subtitle = it }
-        (remainingTimeValue.parent.parent as View).visibility = View.GONE
+        remainingTimeValue = findViewById(R.id.header_remaining_time_value)
+        refreshRemainingTimeButton = findViewById(R.id.header_refresh_remaining_time_button)
+        (findViewById<View>(R.id.remaining_time_value).parent.parent as View).visibility = View.GONE
+        findViewById<View>(R.id.main_instruction_message).visibility = View.GONE
         visitorNameInput = findViewById(R.id.visitor_name_input)
         vehicleNumberInput = findViewById(R.id.vehicle_number_input)
         lastVehicleNumberText = vehicleNumberInput.text.toString()
@@ -104,6 +105,7 @@ class MainActivity : AppCompatActivity() {
         vehicleManagementToggle = findViewById(R.id.vehicle_management_toggle)
         (vehicleManagementToggle.parent.parent as View).visibility = View.GONE
         vehiclePreferences = (application as MyParkingApplication).appContainer.vehiclePreferences
+        remainingTimeLoader = RemainingTimeLoader(this, ::renderRemainingTimeResult)
         configureDurationSpinner()
         configureSavedVehicleSpinner()
         renderSavedVehicles()
@@ -121,9 +123,7 @@ class MainActivity : AppCompatActivity() {
                 ::selectEndDate,
             )
         }
-        findViewById<TextInputLayout>(R.id.visitor_name_layout).setEndIconOnClickListener {
-            saveVehicleNumber()
-        }
+        findViewById<View>(R.id.save_vehicle_button).setOnClickListener { saveVehicleNumber() }
         vehicleNumberInput.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) vehicleNumberInput.selectAll()
         }
@@ -133,22 +133,18 @@ class MainActivity : AppCompatActivity() {
             if (currentVehicleNumber != lastVehicleNumberText) visitorNameInput.text?.clear()
             lastVehicleNumberText = currentVehicleNumber
         }
-        refreshRemainingTimeButton.setOnClickListener { refreshRemainingTime() }
+        refreshRemainingTimeButton.setOnClickListener { refreshRemainingTimeInBackground() }
         findViewById<View>(R.id.drawer_delete_vehicle_button).setOnClickListener { deleteVehicleNumber() }
         registerButton.setOnClickListener { prepareReservation() }
         findViewById<View>(R.id.open_reservation_site_button).setOnClickListener {
             startActivity(Intent(this, ReservationWebActivity::class.java))
         }
-        refreshRemainingTime()
+        refreshRemainingTimeInBackground()
     }
 
     private fun onToolbarItemSelected(item: MenuItem): Boolean = when (item.itemId) {
         R.id.open_vehicle_drawer -> {
             mainDrawer.openDrawer(GravityCompat.END)
-            true
-        }
-        R.id.refresh_remaining_time -> {
-            refreshRemainingTime()
             true
         }
         R.id.open_reservation_history -> {
@@ -319,10 +315,31 @@ class MainActivity : AppCompatActivity() {
             .onSuccess { draft ->
                 vehiclePreferences.saveReservationDraft(draft)
                 renderSavedVehicles(draft.vehicleNumber.value)
-                showStatus(getString(R.string.vehicle_and_period_saved_message), R.drawable.bg_status_success)
-                refreshRemainingTime()
+                showStatus(getString(R.string.vehicle_saved_message), R.drawable.bg_status_success)
+                refreshRemainingTimeInBackground()
             }
             .onFailure { showError(it.message ?: getString(R.string.unknown_error)) }
+    }
+
+    private fun refreshRemainingTimeInBackground() {
+        if (remainingTimeRefreshInProgress) return
+        remainingTimeRefreshInProgress = true
+        remainingTimeValue.text = "남은 시간: 확인 중"
+        refreshRemainingTimeButton.isEnabled = false
+        refreshRemainingTimeButton.text = "조회 중"
+        remainingTimeLoader.refresh()
+    }
+
+    private fun renderRemainingTimeResult(result: RemainingTimeResult) {
+        remainingTimeRefreshInProgress = false
+        refreshRemainingTimeButton.isEnabled = true
+        refreshRemainingTimeButton.text = "새로고침"
+        remainingTimeValue.text = when (result) {
+            is RemainingTimeResult.Available -> "남은 시간: ${result.displayText}"
+            RemainingTimeResult.LoginRequired -> "남은 시간: 공식 사이트 로그인 필요"
+            RemainingTimeResult.NetworkError -> "남은 시간: 네트워크 오류"
+            RemainingTimeResult.Unavailable -> "남은 시간: 현재 정보를 확인할 수 없음"
+        }
     }
 
     private fun refreshRemainingTime() {
@@ -363,6 +380,11 @@ class MainActivity : AppCompatActivity() {
     private fun currentReservationPeriod(): ReservationPeriod =
         selectedEndDate?.let { ReservationPeriod.of(selectedStartDate, it) }
             ?: ReservationPeriod.of(selectedStartDate, selectedDurationOption)
+
+    override fun onDestroy() {
+        if (::remainingTimeLoader.isInitialized) remainingTimeLoader.cancel()
+        super.onDestroy()
+    }
 
     private fun toggleVehicleManagement() {
         val isExpanded = vehicleManagementContent.visibility == View.VISIBLE

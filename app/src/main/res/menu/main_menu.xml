@@ -8,12 +8,6 @@
         android:title="저장 차량"
         app:showAsAction="ifRoom" />
     <item
-        android:id="@+id/refresh_remaining_time"
-        android:contentDescription="남은 시간 새로고침"
-        android:icon="@android:drawable/ic_popup_sync"
-        android:title="남은 시간 새로고침"
-        app:showAsAction="always" />
-    <item
         android:id="@+id/open_reservation_history"
         android:contentDescription="예약 이력"
         android:icon="@android:drawable/ic_menu_recent_history"

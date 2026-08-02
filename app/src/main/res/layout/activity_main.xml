@@ -23,6 +23,30 @@
         app:title="방문 차량 예약"
         app:titleTextColor="@color/on_surface" />
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingBottom="4dp">
+
+        <TextView
+            android:id="@+id/header_remaining_time_value"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="남은 시간: 확인 중"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+            android:textColor="@color/on_surface_variant" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/header_refresh_remaining_time_button"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="새로고침" />
+    </LinearLayout>
+
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -39,6 +63,7 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/main_instruction_message"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="방문 일정을 정하고 차량번호를 입력하세요.\n로그인 후에도 등록 전 마지막 확인을 거칩니다."
@@ -129,11 +154,18 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/visitor_name_layout"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/visitor_name_layout"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:hint="이름"
                 app:boxBackgroundMode="outline"
                 app:boxCornerRadiusBottomEnd="14dp"
@@ -142,7 +174,7 @@
                 app:boxCornerRadiusTopStart="14dp"
                 app:endIconContentDescription="차량 정보 저장"
                 app:endIconDrawable="@android:drawable/ic_menu_save"
-                app:endIconMode="custom">
+                app:endIconMode="none">
 
                 <com.google.android.material.textfield.MaterialAutoCompleteTextView
                     android:id="@+id/visitor_name_input"
@@ -154,6 +186,16 @@
                     android:singleLine="true"
                     android:completionThreshold="0" />
             </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/save_vehicle_button"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="저장"
+                app:cornerRadius="14dp" />
+            </LinearLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
@@ -293,7 +335,7 @@
                             android:layout_marginTop="4dp" />
 
                         <com.google.android.material.button.MaterialButton
-                            android:id="@+id/save_vehicle_button"
+                            android:id="@+id/legacy_save_vehicle_button"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
