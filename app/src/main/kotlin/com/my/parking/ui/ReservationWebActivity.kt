@@ -88,7 +88,19 @@ class ReservationWebActivity : AppCompatActivity() {
               const visible = element => !!(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
               const labelText = element => {
                 const id = element.id ? document.querySelector('label[for="' + CSS.escape(element.id) + '"]') : null;
-                return normalise((id && id.textContent) || element.getAttribute('aria-label') || element.placeholder || element.name || element.id);
+                const siblingLabel = element.previousElementSibling;
+                const parentLabel = element.parentElement && element.parentElement.previousElementSibling;
+                const formGroupLabel = element.closest('.form-group') && element.closest('.form-group').querySelector('label');
+                return normalise([
+                  id && id.textContent,
+                  siblingLabel && siblingLabel.textContent,
+                  parentLabel && parentLabel.textContent,
+                  formGroupLabel && formGroupLabel.textContent,
+                  element.getAttribute('aria-label'),
+                  element.placeholder,
+                  element.name,
+                  element.id,
+                ].filter(Boolean).join(' '));
               };
               const findField = words => Array.from(document.querySelectorAll('input, textarea'))
                 .filter(element => visible(element) && !['hidden', 'password', 'submit', 'button'].includes(element.type))
@@ -98,14 +110,25 @@ class ReservationWebActivity : AppCompatActivity() {
                 setter.call(element, value);
                 ['input', 'change', 'blur'].forEach(type => element.dispatchEvent(new Event(type, { bubbles: true })));
               };
-              const dateField = findField(['\uC608\uC57D\uC77C', '\uBC29\uBB38\uC77C', '\uB0A0\uC9DC', '\uC0AC\uC6A9\uC77C']);
-              const vehicleField = findField(['\uCC28\uB7C9\uBC88\uD638', '\uCC28\uBC88']);
-              if (!dateField || !vehicleField) return 'waiting-for-form';
-              setValue(dateField, dateValue);
+              const registrationMenu = Array.from(document.querySelectorAll('a, button, [role="button"]'))
+                .filter(visible)
+                .find(element => normalise(element.textContent).includes('차량방문예약등록'));
+              const startDateField = findField(['기간시작일', '방문(예약)시작일시']);
+              const endDateField = findField(['기간종료일', '방문(예약)종료일시']);
+              const vehicleField = findField(['차량번호']);
+              if (!startDateField || !endDateField || !vehicleField) {
+                if (registrationMenu) {
+                  registrationMenu.click();
+                  return 'opening-registration-form';
+                }
+                return 'waiting-for-form';
+              }
+              setValue(startDateField, dateValue);
+              setValue(endDateField, dateValue);
               setValue(vehicleField, vehicleValue);
               const submitButton = Array.from(document.querySelectorAll('button, input[type="submit"], input[type="button"], a'))
                 .filter(visible)
-                .find(element => normalise(element.textContent || element.value).includes('\uB4F1\uB85D'));
+                .find(element => normalise(element.textContent || element.value) === '등록');
               if (!submitButton) return 'waiting-for-submit';
               submitButton.click();
               return 'submitted';
@@ -117,8 +140,8 @@ class ReservationWebActivity : AppCompatActivity() {
         private const val RESERVATION_URL = "http://srym2.iptime.org/nxpmsc/book-car"
         private const val EXTRA_RESERVATION_DATE = "reservation_date"
         private const val EXTRA_VEHICLE_NUMBER = "vehicle_number"
-        private const val MAX_AUTOMATION_ATTEMPTS = 5
-        private const val AUTOMATION_RETRY_DELAY_MILLIS = 400L
+        private const val MAX_AUTOMATION_ATTEMPTS = 20
+        private const val AUTOMATION_RETRY_DELAY_MILLIS = 500L
 
         fun intentFor(context: Context, draft: ReservationDraft): Intent =
             Intent(context, ReservationWebActivity::class.java)
