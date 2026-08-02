@@ -26,6 +26,15 @@ class ReservationPeriodTest {
     }
 
     @Test
+    fun `calculates a direct end date as an inclusive period`() {
+        val start = ReservationDate.of(LocalDate.now().plusDays(1))
+        val period = ReservationPeriod.of(start, ReservationDate.of(start.value.plusDays(4)))
+
+        assertEquals(5, period.durationDays)
+        assertEquals(start.value.plusDays(4), period.endDate.value)
+    }
+
+    @Test
     fun `calculates a calendar month as the day before the next month date`() {
         val start = ReservationDate.of(LocalDate.now().plusMonths(2))
         val period = ReservationPeriod.of(start, ReservationDurationOption.CALENDAR_MONTH)

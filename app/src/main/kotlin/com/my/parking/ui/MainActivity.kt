@@ -20,6 +20,8 @@ import androidx.core.view.updatePadding
 import androidx.core.widget.doAfterTextChanged
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
+import com.google.android.material.button.MaterialButtonToggleGroup
+import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.my.parking.MyParkingApplication
 import com.my.parking.R
@@ -35,13 +37,17 @@ import java.time.LocalDate
 
 /** Entry screen for choosing the reservation date and vehicle number. */
 class MainActivity : AppCompatActivity() {
+    private enum class PeriodSelectionMode { DURATION, END_DATE }
+
     private var selectedStartDate = ReservationDate.today()
     private var selectedDurationOption = ReservationDurationOption.ONE_DAY
     private var selectedEndDate: ReservationDate? = null
+    private var periodSelectionMode = PeriodSelectionMode.DURATION
     private var savedVehicleNumbers = emptyList<String>()
-    private lateinit var startDateValue: TextView
-    private lateinit var endDateValue: TextView
+    private lateinit var periodSummaryValue: TextView
     private lateinit var durationSpinner: Spinner
+    private lateinit var periodModeToggle: MaterialButtonToggleGroup
+    private lateinit var selectEndDateButton: View
     private lateinit var statusMessage: TextView
     private lateinit var registerButton: Button
     private lateinit var remainingTimeValue: TextView
@@ -88,9 +94,10 @@ class MainActivity : AppCompatActivity() {
             toolbar.setOnMenuItemClickListener(::onToolbarItemSelected)
         }
 
-        startDateValue = findViewById(R.id.reservation_start_date_value)
-        endDateValue = findViewById(R.id.reservation_end_date_value)
+        periodSummaryValue = findViewById(R.id.reservation_period_summary)
         durationSpinner = findViewById(R.id.reservation_duration_spinner)
+        periodModeToggle = findViewById(R.id.reservation_period_mode_toggle)
+        selectEndDateButton = findViewById(R.id.select_end_date_button)
         statusMessage = findViewById(R.id.status_message)
         registerButton = findViewById(R.id.register_button)
         remainingTimeValue = findViewById(R.id.header_remaining_time_value)
@@ -107,6 +114,7 @@ class MainActivity : AppCompatActivity() {
         vehiclePreferences = (application as MyParkingApplication).appContainer.vehiclePreferences
         remainingTimeLoader = RemainingTimeLoader(this, ::renderRemainingTimeResult)
         configureDurationSpinner()
+        configurePeriodSelectionMode()
         configureSavedVehicleSpinner()
         renderSavedVehicles()
         renderDates()
@@ -125,9 +133,11 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.save_vehicle_button).setOnClickListener { saveVehicleNumber() }
         vehicleNumberInput.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) vehicleNumberInput.selectAll()
+            if (hasFocus) vehicleNumberInput.post { vehicleNumberInput.selectAll() }
         }
-        vehicleNumberInput.setOnClickListener { vehicleNumberInput.selectAll() }
+        vehicleNumberInput.setOnClickListener {
+            vehicleNumberInput.post { vehicleNumberInput.selectAll() }
+        }
         vehicleNumberInput.doAfterTextChanged { editable ->
             val currentVehicleNumber = editable?.toString().orEmpty()
             if (currentVehicleNumber != lastVehicleNumberText) visitorNameInput.text?.clear()
@@ -139,6 +149,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.open_reservation_site_button).setOnClickListener {
             startActivity(Intent(this, ReservationWebActivity::class.java))
         }
+        showToolbarHintOnce()
         refreshRemainingTimeInBackground()
     }
 
@@ -199,6 +210,19 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onNothingSelected(parent: AdapterView<*>) = Unit
+        }
+    }
+
+    private fun configurePeriodSelectionMode() {
+        periodModeToggle.check(R.id.select_duration_mode_button)
+        periodModeToggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            periodSelectionMode = when (checkedId) {
+                R.id.select_end_date_mode_button -> PeriodSelectionMode.END_DATE
+                else -> PeriodSelectionMode.DURATION
+            }
+            if (periodSelectionMode == PeriodSelectionMode.DURATION) selectedEndDate = null
+            renderDates()
         }
     }
 
@@ -291,6 +315,8 @@ class MainActivity : AppCompatActivity() {
         runCatching {
             ReservationPeriod.of(selectedStartDate, ReservationDate.of(date)).endDate
         }.onSuccess {
+            periodSelectionMode = PeriodSelectionMode.END_DATE
+            periodModeToggle.check(R.id.select_end_date_mode_button)
             selectedEndDate = it
             renderDates()
             statusMessage.visibility = View.GONE
@@ -298,15 +324,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderDates() {
-        startDateValue.text = "시작일: ${selectedStartDate.displayText()}"
         val period = currentReservationPeriod()
-        val selectionLabel = if (selectedEndDate == null) "" else " (직접 선택)"
-        endDateValue.text = "종료일: ${period.endDate.displayText()}$selectionLabel"
-        if (selectedEndDate == null) {
+        durationSpinner.visibility = if (periodSelectionMode == PeriodSelectionMode.DURATION) View.VISIBLE else View.GONE
+        selectEndDateButton.visibility = if (periodSelectionMode == PeriodSelectionMode.END_DATE) View.VISIBLE else View.GONE
+        periodSummaryValue.text =
+            "${selectedStartDate.displayText()} ~ ${period.endDate.displayText()} · ${period.durationDays}일"
+        if (periodSelectionMode == PeriodSelectionMode.DURATION) {
             val selectedPosition = ReservationDurationOption.entries.indexOf(selectedDurationOption)
             if (durationSpinner.selectedItemPosition != selectedPosition) {
                 durationSpinner.setSelection(selectedPosition)
             }
+        }
+    }
+
+    private fun showToolbarHintOnce() {
+        val preferences = getSharedPreferences("main_ui_hints", MODE_PRIVATE)
+        if (preferences.getBoolean("toolbar_actions_seen", false)) return
+        mainToolbar.post {
+            Snackbar.make(
+                mainDrawer,
+                "상단 메뉴에서 저장 차량과 예약 이력을 확인할 수 있어요.",
+                Snackbar.LENGTH_LONG,
+            ).show()
+            preferences.edit().putBoolean("toolbar_actions_seen", true).apply()
         }
     }
 
