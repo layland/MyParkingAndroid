@@ -4,6 +4,7 @@ import com.my.parking.domain.ReservationDate
 import com.my.parking.domain.ReservationDraft
 import com.my.parking.domain.ReservationPeriod
 import com.my.parking.domain.VehicleNumber
+import com.my.parking.domain.VisitorName
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -12,16 +13,18 @@ class ReservationPostContractTest {
     @Test
     fun `builds the observed request parameters from the reservation draft`() {
         val draft = ReservationDraft(
+            visitorName = VisitorName.of("홍길동"),
             vehicleNumber = VehicleNumber.of("12가3456"),
             reservationPeriod = ReservationPeriod.of(
                 ReservationDate.of(LocalDate.now().plusDays(1)),
-                ReservationDate.of(LocalDate.now().plusDays(4)),
+                ReservationDate.of(LocalDate.now().plusDays(3)),
             ),
         )
 
         val parameters = ReservationPostContract.parameters(draft)
 
         assertEquals("12가3456", parameters["carNo"])
+        assertEquals("홍길동", parameters["name"])
         assertEquals(draft.reservationPeriod.startDate.value.toString(), parameters["bookStartDate"])
         assertEquals(draft.reservationPeriod.endDate.value.toString(), parameters["bookEndDate"])
         assertEquals("1", parameters["parkingLot"])

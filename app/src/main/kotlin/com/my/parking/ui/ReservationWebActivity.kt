@@ -21,6 +21,7 @@ import com.my.parking.domain.ReservationDate
 import com.my.parking.domain.ReservationDraft
 import com.my.parking.domain.ReservationPeriod
 import com.my.parking.domain.VehicleNumber
+import com.my.parking.domain.VisitorName
 import java.time.LocalDate
 import org.json.JSONObject
 
@@ -73,9 +74,11 @@ class ReservationWebActivity : AppCompatActivity() {
 
     private fun readDraft(): ReservationDraft {
         val vehicle = requireNotNull(intent.getStringExtra(EXTRA_VEHICLE_NUMBER))
+        val visitorName = requireNotNull(intent.getStringExtra(EXTRA_VISITOR_NAME))
         val startDate = requireNotNull(intent.getStringExtra(EXTRA_START_DATE))
         val endDate = requireNotNull(intent.getStringExtra(EXTRA_END_DATE))
         return ReservationDraft(
+            visitorName = VisitorName.of(visitorName),
             vehicleNumber = VehicleNumber.of(vehicle),
             reservationPeriod = ReservationPeriod.of(
                 ReservationDate.of(LocalDate.parse(startDate)),
@@ -177,6 +180,7 @@ class ReservationWebActivity : AppCompatActivity() {
         private const val EXTRA_START_DATE = "reservation_start_date"
         private const val EXTRA_END_DATE = "reservation_end_date"
         private const val EXTRA_VEHICLE_NUMBER = "vehicle_number"
+        private const val EXTRA_VISITOR_NAME = "visitor_name"
         private const val RESULT_TITLE_PREFIX = "myparking-reservation-result:"
 
         fun intentFor(context: Context, draft: ReservationDraft): Intent =
@@ -184,5 +188,6 @@ class ReservationWebActivity : AppCompatActivity() {
                 .putExtra(EXTRA_START_DATE, draft.reservationPeriod.startDate.value.toString())
                 .putExtra(EXTRA_END_DATE, draft.reservationPeriod.endDate.value.toString())
                 .putExtra(EXTRA_VEHICLE_NUMBER, draft.vehicleNumber.value)
+                .putExtra(EXTRA_VISITOR_NAME, draft.visitorName.value)
     }
 }

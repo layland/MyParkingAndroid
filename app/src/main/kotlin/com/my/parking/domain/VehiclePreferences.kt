@@ -10,7 +10,9 @@ interface VehiclePreferences {
 
     fun saveReservationDraft(draft: ReservationDraft)
 
-    fun reservationPeriodFor(vehicleNumber: VehicleNumber): ReservationPeriod?
+    fun visitorNameFor(vehicleNumber: VehicleNumber): VisitorName?
+
+    fun reservationDurationDaysFor(vehicleNumber: VehicleNumber): Int?
 
     fun removeVehicleNumber(vehicleNumber: VehicleNumber)
 }

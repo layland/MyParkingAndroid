@@ -64,7 +64,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="시작일과 종료일을 각각 선택할 수 있어요."
+                        android:text="시작일은 오늘로 시작하며 기간은 최대 3일까지 선택할 수 있어요."
                         android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
                         android:textColor="@color/on_surface_variant" />
 
@@ -82,22 +82,17 @@
                             android:layout_weight="1"
                             android:gravity="start|center_vertical"
                             android:minHeight="68dp"
-                            android:text="시작일"
+                            android:text="시작일 선택"
                             android:textAlignment="viewStart"
                             app:cornerRadius="14dp" />
 
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/select_end_date_button"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        <Spinner
+                            android:id="@+id/reservation_duration_spinner"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="12dp"
                             android:layout_weight="1"
-                            android:gravity="start|center_vertical"
-                            android:minHeight="68dp"
-                            android:text="종료일"
-                            android:textAlignment="viewStart"
-                            app:cornerRadius="14dp" />
+                            android:minHeight="68dp" />
                     </LinearLayout>
 
                     <TextView
@@ -121,6 +116,27 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
+                android:hint="이름"
+                app:boxBackgroundMode="outline"
+                app:boxCornerRadiusBottomEnd="14dp"
+                app:boxCornerRadiusBottomStart="14dp"
+                app:boxCornerRadiusTopEnd="14dp"
+                app:boxCornerRadiusTopStart="14dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/visitor_name_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:imeOptions="actionNext"
+                    android:inputType="textPersonName"
+                    android:maxLength="40"
+                    android:singleLine="true" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
                 android:hint="차량번호"
                 app:boxBackgroundMode="outline"
                 app:boxCornerRadiusBottomEnd="14dp"

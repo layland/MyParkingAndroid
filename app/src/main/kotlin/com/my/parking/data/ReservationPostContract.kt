@@ -10,7 +10,7 @@ object ReservationPostContract {
         "selectParkingZone" to "true",
         "parkingLot" to "1",
         "parkingZone" to "1",
-        "name" to "",
+        "name" to draft.visitorName.value,
         "carNo" to draft.vehicleNumber.value,
         "tel" to "",
         "compName" to "210",

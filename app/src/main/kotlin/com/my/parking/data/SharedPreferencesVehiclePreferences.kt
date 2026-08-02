@@ -1,12 +1,12 @@
 package com.my.parking.data
 
 import android.content.Context
-import com.my.parking.domain.ReservationDate
 import com.my.parking.domain.ReservationDraft
-import com.my.parking.domain.ReservationPeriod
 import com.my.parking.domain.VehicleNumber
 import com.my.parking.domain.VehiclePreferences
+import com.my.parking.domain.VisitorName
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 /** Stores only the non-secret default vehicle number. Authentication is not stored here. */
 class SharedPreferencesVehiclePreferences(context: Context) : VehiclePreferences {
@@ -37,23 +37,27 @@ class SharedPreferencesVehiclePreferences(context: Context) : VehiclePreferences
         preferences.edit()
             .putStringSet(KEY_VEHICLE_NUMBERS, numbers)
             .putString(KEY_DEFAULT_VEHICLE, draft.vehicleNumber.value)
+            .putString(nameKey(draft.vehicleNumber), draft.visitorName.value)
             .putString(
                 periodKey(draft.vehicleNumber),
-                "${draft.reservationPeriod.startDate.value}|${draft.reservationPeriod.endDate.value}",
+                draft.reservationPeriod.durationDays.toString(),
             )
             .apply()
     }
 
-    override fun reservationPeriodFor(vehicleNumber: VehicleNumber): ReservationPeriod? {
+    override fun visitorNameFor(vehicleNumber: VehicleNumber): VisitorName? =
+        preferences.getString(nameKey(vehicleNumber), null)?.let { rawName ->
+            runCatching { VisitorName.of(rawName) }.getOrNull()
+        }
+
+    override fun reservationDurationDaysFor(vehicleNumber: VehicleNumber): Int? {
         val storedPeriod = preferences.getString(periodKey(vehicleNumber), null) ?: return null
         val dates = storedPeriod.split('|')
+        if (dates.size == 1) return storedPeriod.toIntOrNull()?.takeIf { it in 1..MAX_DURATION_DAYS }
         if (dates.size != 2) return null
         return runCatching {
-            ReservationPeriod.of(
-                ReservationDate.of(LocalDate.parse(dates[0])),
-                ReservationDate.of(LocalDate.parse(dates[1])),
-            )
-        }.getOrNull()
+            (ChronoUnit.DAYS.between(LocalDate.parse(dates[0]), LocalDate.parse(dates[1])) + 1).toInt()
+        }.getOrNull()?.takeIf { it in 1..MAX_DURATION_DAYS }
     }
 
     override fun removeVehicleNumber(vehicleNumber: VehicleNumber) {
@@ -66,16 +70,21 @@ class SharedPreferencesVehiclePreferences(context: Context) : VehiclePreferences
                 if (nextDefault == null) remove(KEY_DEFAULT_VEHICLE)
                 else putString(KEY_DEFAULT_VEHICLE, nextDefault)
                 remove(periodKey(vehicleNumber))
+                remove(nameKey(vehicleNumber))
             }
             .apply()
     }
 
     private fun periodKey(vehicleNumber: VehicleNumber): String = "$KEY_PERIOD_PREFIX${vehicleNumber.value}"
 
+    private fun nameKey(vehicleNumber: VehicleNumber): String = "$KEY_NAME_PREFIX${vehicleNumber.value}"
+
     private companion object {
         const val PREFERENCES_NAME = "vehicle_preferences"
         const val KEY_DEFAULT_VEHICLE = "default_vehicle"
         const val KEY_VEHICLE_NUMBERS = "vehicle_numbers"
         const val KEY_PERIOD_PREFIX = "reservation_period_"
+        const val KEY_NAME_PREFIX = "visitor_name_"
+        const val MAX_DURATION_DAYS = 3
     }
 }
