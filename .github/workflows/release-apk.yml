@@ -17,6 +17,13 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Read app version
+        id: app_version
+        run: |
+          VERSION_NAME=$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' app/build.gradle.kts | head -n 1)
+          test -n "$VERSION_NAME"
+          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -43,8 +50,9 @@ jobs:
       - name: Publish APK to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-${{ github.sha }}
-          name: APK ${{ github.sha }}
+          tag_name: v${{ steps.app_version.outputs.name }}
+          name: MyParking ${{ steps.app_version.outputs.name }}
           prerelease: true
           generate_release_notes: true
           files: app/build/outputs/apk/release/app-release.apk
+          overwrite_files: true
