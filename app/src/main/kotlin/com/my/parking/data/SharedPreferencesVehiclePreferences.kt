@@ -2,6 +2,7 @@ package com.my.parking.data
 
 import android.content.Context
 import com.my.parking.domain.ReservationDraft
+import com.my.parking.domain.ReservationDurationOption
 import com.my.parking.domain.VehicleNumber
 import com.my.parking.domain.VehiclePreferences
 import com.my.parking.domain.VisitorName
@@ -40,7 +41,8 @@ class SharedPreferencesVehiclePreferences(context: Context) : VehiclePreferences
             .putString(nameKey(draft.vehicleNumber), draft.visitorName.value)
             .putString(
                 periodKey(draft.vehicleNumber),
-                draft.reservationPeriod.durationDays.toString(),
+                draft.durationOption?.storageValue
+                    ?: "${draft.reservationPeriod.startDate.value}|${draft.reservationPeriod.endDate.value}",
             )
             .apply()
     }
@@ -50,14 +52,14 @@ class SharedPreferencesVehiclePreferences(context: Context) : VehiclePreferences
             runCatching { VisitorName.of(rawName) }.getOrNull()
         }
 
-    override fun reservationDurationDaysFor(vehicleNumber: VehicleNumber): Int? {
+    override fun reservationDurationOptionFor(vehicleNumber: VehicleNumber): ReservationDurationOption? {
         val storedPeriod = preferences.getString(periodKey(vehicleNumber), null) ?: return null
+        ReservationDurationOption.fromStorageValue(storedPeriod)?.let { return it }
         val dates = storedPeriod.split('|')
-        if (dates.size == 1) return storedPeriod.toIntOrNull()?.takeIf { it in 1..MAX_DURATION_DAYS }
         if (dates.size != 2) return null
         return runCatching {
             (ChronoUnit.DAYS.between(LocalDate.parse(dates[0]), LocalDate.parse(dates[1])) + 1).toInt()
-        }.getOrNull()?.takeIf { it in 1..MAX_DURATION_DAYS }
+        }.getOrNull()?.toString()?.let(ReservationDurationOption::fromStorageValue)
     }
 
     override fun removeVehicleNumber(vehicleNumber: VehicleNumber) {
@@ -85,6 +87,5 @@ class SharedPreferencesVehiclePreferences(context: Context) : VehiclePreferences
         const val KEY_VEHICLE_NUMBERS = "vehicle_numbers"
         const val KEY_PERIOD_PREFIX = "reservation_period_"
         const val KEY_NAME_PREFIX = "visitor_name_"
-        const val MAX_DURATION_DAYS = 3
     }
 }

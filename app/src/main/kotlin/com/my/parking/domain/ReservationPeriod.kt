@@ -10,6 +10,9 @@ class ReservationPeriod private constructor(
     val durationDays: Int = (ChronoUnit.DAYS.between(startDate.value, endDate.value) + 1).toInt()
 
     companion object {
+        const val MAX_DURATION_DAYS = 90
+        const val MAX_SUBMISSION_DURATION_DAYS = 4
+
         fun of(startDate: ReservationDate, endDate: ReservationDate): ReservationPeriod {
             require(!endDate.value.isBefore(startDate.value)) {
                 "종료일은 시작일보다 빠를 수 없습니다."
@@ -20,13 +23,20 @@ class ReservationPeriod private constructor(
             return ReservationPeriod(startDate, endDate)
         }
 
-        fun of(startDate: ReservationDate, durationDays: Int): ReservationPeriod {
-            require(durationDays in 1..MAX_DURATION_DAYS) {
-                "예약 기간은 1일부터 ${MAX_DURATION_DAYS}일까지 선택할 수 있습니다."
-            }
-            return of(startDate, ReservationDate.of(startDate.value.plusDays(durationDays - 1L)))
-        }
+        fun of(startDate: ReservationDate, durationOption: ReservationDurationOption): ReservationPeriod =
+            of(startDate, ReservationDate.of(durationOption.endDateFor(startDate.value)))
 
-        const val MAX_DURATION_DAYS = 3
+        /** Splits an inclusive selected period into server-supported requests of at most four days. */
+        fun splitForSubmission(period: ReservationPeriod): List<ReservationPeriod> = buildList {
+            var nextStart = period.startDate.value
+            while (!nextStart.isAfter(period.endDate.value)) {
+                val nextEnd = minOf(
+                    nextStart.plusDays(MAX_SUBMISSION_DURATION_DAYS - 1L),
+                    period.endDate.value,
+                )
+                add(of(ReservationDate.of(nextStart), ReservationDate.of(nextEnd)))
+                nextStart = nextEnd.plusDays(1)
+            }
+        }
     }
 }

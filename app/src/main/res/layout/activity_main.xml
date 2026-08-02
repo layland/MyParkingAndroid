@@ -7,6 +7,7 @@
     android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/main_toolbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/surface"
@@ -64,7 +65,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="시작일은 오늘로 시작하며 기간은 최대 3일까지 선택할 수 있어요."
+                        android:text="시작일과 종료일을 선택하세요. 최대 90일까지 4일씩 나누어 등록합니다."
                         android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
                         android:textColor="@color/on_surface_variant" />
 
@@ -94,6 +95,15 @@
                             android:layout_weight="1"
                             android:minHeight="68dp" />
                     </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/select_end_date_button"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="종료일 선택"
+                        app:cornerRadius="14dp" />
 
                     <TextView
                         android:id="@+id/reservation_start_date_value"

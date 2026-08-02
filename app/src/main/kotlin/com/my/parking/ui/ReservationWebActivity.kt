@@ -19,6 +19,7 @@ import com.my.parking.data.ReservationSubmissionGate
 import com.my.parking.data.ReservationSubmissionResult
 import com.my.parking.domain.ReservationDate
 import com.my.parking.domain.ReservationDraft
+import com.my.parking.domain.ReservationDurationOption
 import com.my.parking.domain.ReservationPeriod
 import com.my.parking.domain.VehicleNumber
 import com.my.parking.domain.VisitorName
@@ -75,11 +76,13 @@ class ReservationWebActivity : AppCompatActivity() {
     private fun readDraft(): ReservationDraft {
         val vehicle = requireNotNull(intent.getStringExtra(EXTRA_VEHICLE_NUMBER))
         val visitorName = requireNotNull(intent.getStringExtra(EXTRA_VISITOR_NAME))
+        val durationOption = intent.getStringExtra(EXTRA_DURATION_OPTION)
         val startDate = requireNotNull(intent.getStringExtra(EXTRA_START_DATE))
         val endDate = requireNotNull(intent.getStringExtra(EXTRA_END_DATE))
         return ReservationDraft(
             visitorName = VisitorName.of(visitorName),
             vehicleNumber = VehicleNumber.of(vehicle),
+            durationOption = ReservationDurationOption.fromStorageValue(durationOption),
             reservationPeriod = ReservationPeriod.of(
                 ReservationDate.of(LocalDate.parse(startDate)),
                 ReservationDate.of(LocalDate.parse(endDate)),
@@ -93,7 +96,10 @@ class ReservationWebActivity : AppCompatActivity() {
                 confirmationShown = true
                 AlertDialog.Builder(this)
                     .setTitle(R.string.reservation_confirmation_title)
-                    .setMessage(R.string.reservation_confirmation_message)
+                    .setMessage(
+                        getString(R.string.reservation_confirmation_message) + "\n\n" +
+                            "총 ${ReservationPeriod.splitForSubmission(draft.reservationPeriod).size}건으로 나누어 등록합니다.",
+                    )
                     .setNegativeButton(R.string.cancel, null)
                     .setPositiveButton(R.string.confirm) { _, _ -> submitReservation() }
                     .show()
@@ -105,8 +111,9 @@ class ReservationWebActivity : AppCompatActivity() {
         if (!submissionGate.begin()) return
         showMessage(getString(R.string.reservation_submitting_message))
 
-        val payload = JSONObject(ReservationPostContract.parameters(draft)).toString()
-        webView.evaluateJavascript(submissionScript(payload), null)
+        val payloads = ReservationPeriod.splitForSubmission(draft.reservationPeriod)
+            .map { period -> ReservationPostContract.parameters(draft, period) }
+        webView.evaluateJavascript(submissionScript(org.json.JSONArray(payloads).toString()), null)
     }
 
     private fun handleSubmissionResult(encodedResult: String) {
@@ -115,24 +122,46 @@ class ReservationWebActivity : AppCompatActivity() {
         val result = runCatching {
             val responseText = String(Base64.decode(encodedResult, Base64.NO_WRAP), Charsets.UTF_8)
             val response = JSONObject(responseText)
-            if (response.optBoolean("networkError", false)) {
-                ReservationSubmissionResult.Failure(getString(R.string.reservation_result_unknown))
-            } else {
-                ReservationSubmissionResult.from(
-                    httpStatus = response.optInt("httpStatus", 0),
-                    result = response.takeIf { it.has("result") }?.optString("result"),
-                    message = response.takeIf { it.has("message") }?.optString("message"),
-                )
-            }
+            batchResultMessage(response)
         }.getOrElse {
             ReservationSubmissionResult.Failure(getString(R.string.reservation_result_unknown))
         }
 
         when (result) {
-            is ReservationSubmissionResult.Success -> showMessage(
-                result.message.ifBlank { getString(R.string.reservation_success_message) },
-            )
+            is ReservationSubmissionResult.Success -> showMessage(result.message.ifBlank { getString(R.string.reservation_success_message) })
             is ReservationSubmissionResult.Failure -> showMessage(result.message)
+        }
+    }
+
+    private fun batchResultMessage(response: JSONObject): ReservationSubmissionResult {
+        val responses = response.optJSONArray("responses") ?: return ReservationSubmissionResult.Failure(
+            getString(R.string.reservation_result_unknown),
+        )
+        var succeeded = 0
+        var failureMessage: String? = null
+        for (index in 0 until responses.length()) {
+            val item = responses.optJSONObject(index) ?: break
+            val outcome = if (item.optBoolean("networkError", false)) {
+                ReservationSubmissionResult.Failure(getString(R.string.reservation_result_unknown))
+            } else {
+                ReservationSubmissionResult.from(
+                    item.optInt("httpStatus", 0),
+                    item.takeIf { it.has("result") }?.optString("result"),
+                    item.takeIf { it.has("message") }?.optString("message"),
+                )
+            }
+            if (outcome is ReservationSubmissionResult.Success) succeeded++ else {
+                failureMessage = (outcome as ReservationSubmissionResult.Failure).message
+                break
+            }
+        }
+        val total = response.optInt("totalCount", responses.length())
+        return if (failureMessage == null && succeeded == total) {
+            ReservationSubmissionResult.Success("총 ${total}건의 예약이 등록되었습니다.")
+        } else {
+            ReservationSubmissionResult.Failure(
+                "${total}건 중 ${succeeded}건 등록 후 중단되었습니다. ${failureMessage ?: getString(R.string.reservation_result_unknown)} 공식 사이트에서 먼저 확인해 주세요.",
+            )
         }
     }
 
@@ -143,15 +172,18 @@ class ReservationWebActivity : AppCompatActivity() {
         }
     }
 
-    private fun submissionScript(payload: String): String = """
+    private fun submissionScript(payloads: String): String = """
         (async function () {
-          const payload = $payload;
+          const payloads = $payloads;
           const report = value => {
             const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(value))));
             document.title = '$RESULT_TITLE_PREFIX' + encoded;
           };
-          try {
-            const response = await fetch('/nxpmsc/book-car/post', {
+          const responses = [];
+          for (let index = 0; index < payloads.length; index += 1) {
+            let item;
+            try {
+              const response = await fetch('/nxpmsc/book-car/post', {
               method: 'POST',
               headers: {
                 'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -159,19 +191,24 @@ class ReservationWebActivity : AppCompatActivity() {
                 'X-Requested-With': 'XMLHttpRequest',
               },
               credentials: 'include',
-              body: new URLSearchParams(payload),
-            });
-            const text = await response.text();
-            let body = null;
-            try { body = JSON.parse(text); } catch (_) {}
-            report({
-              httpStatus: response.status,
-              result: body && body.result,
-              message: body && body.message,
-            });
-          } catch (_) {
-            report({ networkError: true });
+                body: new URLSearchParams(payloads[index]),
+              });
+              const text = await response.text();
+              let body = null;
+              try { body = JSON.parse(text); } catch (_) {}
+              item = {
+                httpStatus: response.status,
+                result: body && body.result,
+                message: body && body.message,
+              };
+            } catch (_) {
+              item = { networkError: true };
+            }
+            responses.push(item);
+            if (!(item.httpStatus >= 200 && item.httpStatus < 300 && item.result === 'success')) break;
+            if (index < payloads.length - 1) await new Promise(resolve => setTimeout(resolve, 1000));
           }
+          report({ responses: responses, totalCount: payloads.length });
         })();
     """.trimIndent()
 
@@ -181,6 +218,7 @@ class ReservationWebActivity : AppCompatActivity() {
         private const val EXTRA_END_DATE = "reservation_end_date"
         private const val EXTRA_VEHICLE_NUMBER = "vehicle_number"
         private const val EXTRA_VISITOR_NAME = "visitor_name"
+        private const val EXTRA_DURATION_OPTION = "reservation_duration_option"
         private const val RESULT_TITLE_PREFIX = "myparking-reservation-result:"
 
         fun intentFor(context: Context, draft: ReservationDraft): Intent =
@@ -189,5 +227,8 @@ class ReservationWebActivity : AppCompatActivity() {
                 .putExtra(EXTRA_END_DATE, draft.reservationPeriod.endDate.value.toString())
                 .putExtra(EXTRA_VEHICLE_NUMBER, draft.vehicleNumber.value)
                 .putExtra(EXTRA_VISITOR_NAME, draft.visitorName.value)
+                .apply {
+                    draft.durationOption?.let { putExtra(EXTRA_DURATION_OPTION, it.storageValue) }
+                }
     }
 }

@@ -12,10 +12,14 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import com.my.parking.MyParkingApplication
 import com.my.parking.R
 import com.my.parking.domain.ReservationDate
 import com.my.parking.domain.ReservationDraft
+import com.my.parking.domain.ReservationDurationOption
 import com.my.parking.domain.ReservationPeriod
 import com.my.parking.domain.VehicleNumber
 import com.my.parking.domain.VehiclePreferences
@@ -25,7 +29,8 @@ import java.time.LocalDate
 /** Entry screen for choosing the reservation date and vehicle number. */
 class MainActivity : AppCompatActivity() {
     private var selectedStartDate = ReservationDate.today()
-    private var selectedDurationDays = 1
+    private var selectedDurationOption = ReservationDurationOption.ONE_DAY
+    private var selectedEndDate: ReservationDate? = null
     private var savedVehicleNumbers = emptyList<String>()
     private lateinit var startDateValue: TextView
     private lateinit var endDateValue: TextView
@@ -42,6 +47,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        applyStatusBarInset(findViewById(R.id.main_toolbar))
 
         startDateValue = findViewById(R.id.reservation_start_date_value)
         endDateValue = findViewById(R.id.reservation_end_date_value)
@@ -60,7 +66,16 @@ class MainActivity : AppCompatActivity() {
         renderDates()
 
         findViewById<View>(R.id.select_start_date_button).setOnClickListener {
-            showDatePicker(selectedStartDate.value, ::selectStartDate)
+            showDatePicker(selectedStartDate.value, LocalDate.now(), null, ::selectStartDate)
+        }
+        findViewById<View>(R.id.select_end_date_button).setOnClickListener {
+            val currentEndDate = currentReservationPeriod().endDate.value
+            showDatePicker(
+                currentEndDate,
+                selectedStartDate.value,
+                selectedStartDate.value.plusDays(ReservationPeriod.MAX_DURATION_DAYS - 1L),
+                ::selectEndDate,
+            )
         }
         findViewById<View>(R.id.save_vehicle_button).setOnClickListener { saveVehicleNumber() }
         findViewById<View>(R.id.delete_vehicle_button).setOnClickListener { deleteVehicleNumber() }
@@ -80,7 +95,9 @@ class MainActivity : AppCompatActivity() {
                         vehiclePreferences.saveDefaultVehicleNumber(vehicleNumber)
                         visitorNameInput.setText(vehiclePreferences.visitorNameFor(vehicleNumber)?.value.orEmpty())
                         selectedStartDate = ReservationDate.today()
-                        selectedDurationDays = vehiclePreferences.reservationDurationDaysFor(vehicleNumber) ?: 1
+                        selectedDurationOption = vehiclePreferences.reservationDurationOptionFor(vehicleNumber)
+                            ?: ReservationDurationOption.ONE_DAY
+                        selectedEndDate = null
                         renderDates()
                     }
                 }
@@ -90,15 +107,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun applyStatusBarInset(toolbar: View) {
+        val originalTopPadding = toolbar.paddingTop
+        ViewCompat.setOnApplyWindowInsetsListener(toolbar) { view, insets ->
+            view.updatePadding(
+                top = originalTopPadding + insets.getInsets(WindowInsetsCompat.Type.statusBars()).top,
+            )
+            insets
+        }
+        ViewCompat.requestApplyInsets(toolbar)
+    }
+
     private fun configureDurationSpinner() {
         durationSpinner.adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_item,
-            (1..ReservationPeriod.MAX_DURATION_DAYS).map { "${it}일" },
+            ReservationDurationOption.entries.map(ReservationDurationOption::displayText),
         ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
         durationSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
-                selectedDurationDays = position + 1
+                selectedDurationOption = ReservationDurationOption.entries[position]
+                selectedEndDate = null
                 renderDates()
             }
 
@@ -128,31 +157,60 @@ class MainActivity : AppCompatActivity() {
         savedVehicleSpinner.setSelection(savedVehicleNumbers.indexOf(selectedVehicle).coerceAtLeast(0))
     }
 
-    private fun showDatePicker(current: LocalDate, onDateSelected: (LocalDate) -> Unit) {
+    private fun showDatePicker(
+        current: LocalDate,
+        minDate: LocalDate,
+        maxDate: LocalDate?,
+        onDateSelected: (LocalDate) -> Unit,
+    ) {
         DatePickerDialog(
             this,
             { _, year, month, day -> onDateSelected(LocalDate.of(year, month + 1, day)) },
             current.year,
             current.monthValue - 1,
             current.dayOfMonth,
-        ).show()
+        ).apply {
+            datePicker.minDate = minDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            maxDate?.let {
+                datePicker.maxDate = it.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            }
+        }.show()
     }
 
     private fun selectStartDate(date: LocalDate) {
         runCatching { ReservationDate.of(date) }
             .onSuccess {
                 selectedStartDate = it
+                selectedEndDate = selectedEndDate?.takeIf { endDate ->
+                    !endDate.value.isBefore(it.value) &&
+                        !endDate.value.isAfter(it.value.plusDays(ReservationPeriod.MAX_DURATION_DAYS - 1L))
+                }
                 renderDates()
                 statusMessage.visibility = View.GONE
             }
             .onFailure { showError(it.message ?: getString(R.string.unknown_error)) }
     }
 
+    private fun selectEndDate(date: LocalDate) {
+        runCatching {
+            ReservationPeriod.of(selectedStartDate, ReservationDate.of(date)).endDate
+        }.onSuccess {
+            selectedEndDate = it
+            renderDates()
+            statusMessage.visibility = View.GONE
+        }.onFailure { showError(it.message ?: getString(R.string.unknown_error)) }
+    }
+
     private fun renderDates() {
         startDateValue.text = "시작일: ${selectedStartDate.displayText()}"
-        endDateValue.text = "종료일: ${ReservationPeriod.of(selectedStartDate, selectedDurationDays).endDate.displayText()}"
-        if (durationSpinner.selectedItemPosition != selectedDurationDays - 1) {
-            durationSpinner.setSelection(selectedDurationDays - 1)
+        val period = currentReservationPeriod()
+        val selectionLabel = if (selectedEndDate == null) "" else " (직접 선택)"
+        endDateValue.text = "종료일: ${period.endDate.displayText()}$selectionLabel"
+        if (selectedEndDate == null) {
+            val selectedPosition = ReservationDurationOption.entries.indexOf(selectedDurationOption)
+            if (durationSpinner.selectedItemPosition != selectedPosition) {
+                durationSpinner.setSelection(selectedPosition)
+            }
         }
     }
 
@@ -188,8 +246,13 @@ class MainActivity : AppCompatActivity() {
     private fun currentDraft(): ReservationDraft = ReservationDraft(
         visitorName = VisitorName.of(visitorNameInput.text.toString()),
         vehicleNumber = VehicleNumber.of(vehicleNumberInput.text.toString()),
-        reservationPeriod = ReservationPeriod.of(selectedStartDate, selectedDurationDays),
+        durationOption = selectedEndDate?.let { null } ?: selectedDurationOption,
+        reservationPeriod = currentReservationPeriod(),
     )
+
+    private fun currentReservationPeriod(): ReservationPeriod =
+        selectedEndDate?.let { ReservationPeriod.of(selectedStartDate, it) }
+            ?: ReservationPeriod.of(selectedStartDate, selectedDurationOption)
 
     private fun toggleVehicleManagement() {
         val isExpanded = vehicleManagementContent.visibility == View.VISIBLE
