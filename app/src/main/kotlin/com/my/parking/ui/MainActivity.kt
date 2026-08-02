@@ -32,6 +32,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var registerButton: Button
     private lateinit var vehicleNumberInput: EditText
     private lateinit var savedVehicleSpinner: Spinner
+    private lateinit var vehicleManagementContent: View
+    private lateinit var vehicleManagementToggle: Button
     private lateinit var vehiclePreferences: VehiclePreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,6 +46,8 @@ class MainActivity : AppCompatActivity() {
         registerButton = findViewById(R.id.register_button)
         vehicleNumberInput = findViewById(R.id.vehicle_number_input)
         savedVehicleSpinner = findViewById(R.id.saved_vehicle_spinner)
+        vehicleManagementContent = findViewById(R.id.vehicle_management_content)
+        vehicleManagementToggle = findViewById(R.id.vehicle_management_toggle)
         vehiclePreferences = (application as MyParkingApplication).appContainer.vehiclePreferences
         configureSavedVehicleSpinner()
         renderSavedVehicles()
@@ -57,6 +61,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.save_vehicle_button).setOnClickListener { saveVehicleNumber() }
         findViewById<View>(R.id.delete_vehicle_button).setOnClickListener { deleteVehicleNumber() }
+        vehicleManagementToggle.setOnClickListener { toggleVehicleManagement() }
         registerButton.setOnClickListener { prepareReservation() }
         findViewById<View>(R.id.open_reservation_site_button).setOnClickListener {
             startActivity(Intent(this, ReservationWebActivity::class.java))
@@ -68,7 +73,14 @@ class MainActivity : AppCompatActivity() {
             override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
                 savedVehicleNumbers.getOrNull(position)?.let { selectedVehicle ->
                     vehicleNumberInput.setText(selectedVehicle)
-                    VehicleNumber.of(selectedVehicle).let(vehiclePreferences::saveDefaultVehicleNumber)
+                    VehicleNumber.of(selectedVehicle).let { vehicleNumber ->
+                        vehiclePreferences.saveDefaultVehicleNumber(vehicleNumber)
+                        vehiclePreferences.reservationPeriodFor(vehicleNumber)?.let { period ->
+                            selectedStartDate = period.startDate
+                            selectedEndDate = period.endDate
+                            renderDates()
+                        }
+                    }
                 }
             }
 
@@ -127,12 +139,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun saveVehicleNumber() {
-        runCatching { VehicleNumber.of(vehicleNumberInput.text.toString()) }
-            .onSuccess { vehicleNumber ->
-                vehiclePreferences.saveDefaultVehicleNumber(vehicleNumber)
-                renderSavedVehicles(vehicleNumber.value)
-                statusMessage.visibility = View.VISIBLE
-                statusMessage.text = getString(R.string.vehicle_saved_message)
+        runCatching(::currentDraft)
+            .onSuccess { draft ->
+                vehiclePreferences.saveReservationDraft(draft)
+                renderSavedVehicles(draft.vehicleNumber.value)
+                showStatus(getString(R.string.vehicle_and_period_saved_message), R.drawable.bg_status_success)
             }
             .onFailure { showError(it.message ?: getString(R.string.unknown_error)) }
     }
@@ -143,27 +154,39 @@ class MainActivity : AppCompatActivity() {
                 vehiclePreferences.removeVehicleNumber(vehicleNumber)
                 vehicleNumberInput.text.clear()
                 renderSavedVehicles()
-                statusMessage.visibility = View.VISIBLE
-                statusMessage.text = getString(R.string.vehicle_deleted_message)
+                showStatus(getString(R.string.vehicle_deleted_message), R.drawable.bg_status_info)
             }
             .onFailure { showError(it.message ?: getString(R.string.unknown_error)) }
     }
 
     private fun prepareReservation() {
-        runCatching {
-            ReservationDraft(
-                vehicleNumber = VehicleNumber.of(vehicleNumberInput.text.toString()),
-                reservationPeriod = ReservationPeriod.of(selectedStartDate, selectedEndDate),
-            )
-        }.onSuccess { draft ->
-            vehiclePreferences.saveDefaultVehicleNumber(draft.vehicleNumber)
+        runCatching(::currentDraft).onSuccess { draft ->
+            vehiclePreferences.saveReservationDraft(draft)
             startActivity(ReservationWebActivity.intentFor(this, draft))
         }.onFailure { showError(it.message ?: getString(R.string.unknown_error)) }
     }
 
-    private fun showError(message: String) {
+    private fun currentDraft(): ReservationDraft = ReservationDraft(
+        vehicleNumber = VehicleNumber.of(vehicleNumberInput.text.toString()),
+        reservationPeriod = ReservationPeriod.of(selectedStartDate, selectedEndDate),
+    )
+
+    private fun toggleVehicleManagement() {
+        val isExpanded = vehicleManagementContent.visibility == View.VISIBLE
+        vehicleManagementContent.visibility = if (isExpanded) View.GONE else View.VISIBLE
+        vehicleManagementToggle.text = getString(
+            if (isExpanded) R.string.vehicle_management_expand else R.string.vehicle_management_collapse,
+        )
+    }
+
+    private fun showStatus(message: String, backgroundResource: Int) {
         statusMessage.visibility = View.VISIBLE
+        statusMessage.setBackgroundResource(backgroundResource)
         statusMessage.text = message
+    }
+
+    private fun showError(message: String) {
+        showStatus(message, R.drawable.bg_status_error)
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 }

@@ -4,12 +4,15 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Base64
 import android.view.View
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.appbar.MaterialToolbar
 import com.my.parking.R
 import com.my.parking.data.ReservationPostContract
 import com.my.parking.data.ReservationSubmissionGate
@@ -20,19 +23,22 @@ import com.my.parking.domain.ReservationPeriod
 import com.my.parking.domain.VehicleNumber
 import java.time.LocalDate
 import org.json.JSONObject
-import org.json.JSONTokener
 
 /** Submits through the official site's authenticated WebView session without reading cookies. */
 class ReservationWebActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var draft: ReservationDraft
     private var confirmationShown = false
+    private var resultHandled = false
     private val submissionGate = ReservationSubmissionGate()
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_reservation_web)
+        findViewById<MaterialToolbar>(R.id.reservation_toolbar).setNavigationOnClickListener {
+            if (webView.canGoBack()) webView.goBack() else finish()
+        }
 
         draft = readDraft()
         webView = findViewById<WebView>(R.id.reservation_web_view).apply {
@@ -42,6 +48,15 @@ class ReservationWebActivity : AppCompatActivity() {
                     if (!confirmationShown && !submissionGate.hasStarted && url.contains("/book-car")) {
                         confirmAfterLoginIfReady()
                     }
+                }
+            }
+            webChromeClient = object : WebChromeClient() {
+                override fun onReceivedTitle(view: WebView, title: String?) {
+                    super.onReceivedTitle(view, title)
+                    title
+                        ?.takeIf { it.startsWith(RESULT_TITLE_PREFIX) }
+                        ?.removePrefix(RESULT_TITLE_PREFIX)
+                        ?.let(::handleSubmissionResult)
                 }
             }
             settings.javaScriptEnabled = true
@@ -88,15 +103,15 @@ class ReservationWebActivity : AppCompatActivity() {
         showMessage(getString(R.string.reservation_submitting_message))
 
         val payload = JSONObject(ReservationPostContract.parameters(draft)).toString()
-        webView.evaluateJavascript(submissionScript(payload)) { rawResult ->
-            handleSubmissionResult(rawResult)
-        }
+        webView.evaluateJavascript(submissionScript(payload), null)
     }
 
-    private fun handleSubmissionResult(rawResult: String) {
+    private fun handleSubmissionResult(encodedResult: String) {
+        if (resultHandled) return
+        resultHandled = true
         val result = runCatching {
-            val encodedResult = JSONTokener(rawResult).nextValue() as String
-            val response = JSONObject(encodedResult)
+            val responseText = String(Base64.decode(encodedResult, Base64.NO_WRAP), Charsets.UTF_8)
+            val response = JSONObject(responseText)
             if (response.optBoolean("networkError", false)) {
                 ReservationSubmissionResult.Failure(getString(R.string.reservation_result_unknown))
             } else {
@@ -128,6 +143,10 @@ class ReservationWebActivity : AppCompatActivity() {
     private fun submissionScript(payload: String): String = """
         (async function () {
           const payload = $payload;
+          const report = value => {
+            const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(value))));
+            document.title = '$RESULT_TITLE_PREFIX' + encoded;
+          };
           try {
             const response = await fetch('/nxpmsc/book-car/post', {
               method: 'POST',
@@ -142,13 +161,13 @@ class ReservationWebActivity : AppCompatActivity() {
             const text = await response.text();
             let body = null;
             try { body = JSON.parse(text); } catch (_) {}
-            return JSON.stringify({
+            report({
               httpStatus: response.status,
               result: body && body.result,
               message: body && body.message,
             });
           } catch (_) {
-            return JSON.stringify({ networkError: true });
+            report({ networkError: true });
           }
         })();
     """.trimIndent()
@@ -158,6 +177,7 @@ class ReservationWebActivity : AppCompatActivity() {
         private const val EXTRA_START_DATE = "reservation_start_date"
         private const val EXTRA_END_DATE = "reservation_end_date"
         private const val EXTRA_VEHICLE_NUMBER = "vehicle_number"
+        private const val RESULT_TITLE_PREFIX = "myparking-reservation-result:"
 
         fun intentFor(context: Context, draft: ReservationDraft): Intent =
             Intent(context, ReservationWebActivity::class.java)

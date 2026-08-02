@@ -8,5 +8,9 @@ interface VehiclePreferences {
 
     fun saveDefaultVehicleNumber(vehicleNumber: VehicleNumber)
 
+    fun saveReservationDraft(draft: ReservationDraft)
+
+    fun reservationPeriodFor(vehicleNumber: VehicleNumber): ReservationPeriod?
+
     fun removeVehicleNumber(vehicleNumber: VehicleNumber)
 }
