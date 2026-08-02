@@ -19,11 +19,13 @@ import com.my.parking.R
 import com.my.parking.domain.ReservationHistoryEntry
 import com.my.parking.domain.ReservationHistoryRepository
 import com.my.parking.domain.ReservationHistoryStatus
+import com.my.parking.domain.VehicleReservationHistory
+import com.my.parking.domain.groupByVehicle
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Displays only local records of submission results verified by the server response. */
+/** Displays local records of submission results verified by the server response. */
 class ReservationHistoryActivity : AppCompatActivity() {
     private lateinit var historyRepository: ReservationHistoryRepository
     private lateinit var historyList: ListView
@@ -61,7 +63,7 @@ class ReservationHistoryActivity : AppCompatActivity() {
 
     private fun renderEntries() {
         val entries = historyRepository.entries()
-        adapter.replace(entries)
+        adapter.replace(entries.groupByVehicle())
         historyList.visibility = if (entries.isEmpty()) View.GONE else View.VISIBLE
         emptyState.visibility = if (entries.isEmpty()) View.VISIBLE else View.GONE
         clearButton.isEnabled = entries.isNotEmpty()
@@ -80,43 +82,56 @@ class ReservationHistoryActivity : AppCompatActivity() {
     }
 
     private class ReservationHistoryAdapter(
-        private var entries: List<ReservationHistoryEntry>,
+        private var vehicleHistories: List<VehicleReservationHistory>,
     ) : BaseAdapter() {
-        override fun getCount(): Int = entries.size
+        override fun getCount(): Int = vehicleHistories.size
 
-        override fun getItem(position: Int): ReservationHistoryEntry = entries[position]
+        override fun getItem(position: Int): VehicleReservationHistory = vehicleHistories[position]
 
-        override fun getItemId(position: Int): Long = entries[position].attemptedAt.toEpochMilli()
+        override fun getItemId(position: Int): Long = getItem(position).entries.first().attemptedAt.toEpochMilli()
 
         override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
             val view = convertView ?: LayoutInflater.from(parent.context)
                 .inflate(R.layout.item_reservation_history, parent, false)
-            val entry = getItem(position)
-            val status = view.findViewById<TextView>(R.id.history_status)
-            status.text = when (entry.status) {
-                ReservationHistoryStatus.SUCCESS -> "등록 성공"
-                ReservationHistoryStatus.FAILURE -> "등록 실패"
+            val history = getItem(position)
+            view.findViewById<TextView>(R.id.history_vehicle).text = history.vehicleNumber
+            view.findViewById<TextView>(R.id.history_visitor_name).apply {
+                text = history.visitorName
+                visibility = if (history.visitorName.isBlank()) View.GONE else View.VISIBLE
             }
-            status.setBackgroundResource(
-                if (entry.status == ReservationHistoryStatus.SUCCESS) R.drawable.bg_status_success
-                else R.drawable.bg_status_error,
-            )
-            status.setTextColor(
-                view.context.getColor(
-                    if (entry.status == ReservationHistoryStatus.SUCCESS) R.color.status_success_on
-                    else R.color.status_error_on,
-                ),
-            )
-            view.findViewById<TextView>(R.id.history_period).text =
-                "${entry.startDate} ~ ${entry.endDate}"
-            view.findViewById<TextView>(R.id.history_vehicle).text = entry.maskedVehicleNumber
-            view.findViewById<TextView>(R.id.history_attempted_at).text =
-                entry.attemptedAt.atZone(ZoneId.systemDefault()).format(ATTEMPTED_AT_FORMAT)
+            val schedules = view.findViewById<ViewGroup>(R.id.history_schedules)
+            schedules.removeAllViews()
+            history.entries.forEach { entry ->
+                schedules.addView(createScheduleView(schedules, entry))
+            }
             return view
         }
 
-        fun replace(newEntries: List<ReservationHistoryEntry>) {
-            entries = newEntries
+        private fun createScheduleView(parent: ViewGroup, entry: ReservationHistoryEntry): View =
+            LayoutInflater.from(parent.context).inflate(R.layout.item_reservation_history_schedule, parent, false).apply {
+                findViewById<TextView>(R.id.history_status).apply {
+                    text = when (entry.status) {
+                        ReservationHistoryStatus.SUCCESS -> "등록 성공"
+                        ReservationHistoryStatus.FAILURE -> "등록 실패"
+                    }
+                    setBackgroundResource(
+                        if (entry.status == ReservationHistoryStatus.SUCCESS) R.drawable.bg_status_success
+                        else R.drawable.bg_status_error,
+                    )
+                    setTextColor(
+                        context.getColor(
+                            if (entry.status == ReservationHistoryStatus.SUCCESS) R.color.status_success_on
+                            else R.color.status_error_on,
+                        ),
+                    )
+                }
+                findViewById<TextView>(R.id.history_period).text = "${entry.startDate} ~ ${entry.endDate}"
+                findViewById<TextView>(R.id.history_attempted_at).text =
+                    entry.attemptedAt.atZone(ZoneId.systemDefault()).format(ATTEMPTED_AT_FORMAT)
+            }
+
+        fun replace(newVehicleHistories: List<VehicleReservationHistory>) {
+            vehicleHistories = newVehicleHistories
             notifyDataSetChanged()
         }
 

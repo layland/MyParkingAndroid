@@ -5,14 +5,13 @@ import com.my.parking.domain.ReservationDraft
 import com.my.parking.domain.ReservationHistoryEntry
 import com.my.parking.domain.ReservationHistoryRepository
 import com.my.parking.domain.ReservationHistoryStatus
-import com.my.parking.domain.maskedForHistory
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Separate local storage for submission history; it intentionally never contains full vehicle numbers. */
+/** Separate local storage for server-verified reservation submission history. */
 class SharedPreferencesReservationHistoryRepository(
     context: Context,
     private val clock: Clock = Clock.systemDefaultZone(),
@@ -27,7 +26,8 @@ class SharedPreferencesReservationHistoryRepository(
             attemptedAt = clock.instant(),
             startDate = draft.reservationPeriod.startDate.value,
             endDate = draft.reservationPeriod.endDate.value,
-            maskedVehicleNumber = draft.vehicleNumber.maskedForHistory(),
+            vehicleNumber = draft.vehicleNumber.value,
+            visitorName = draft.visitorName.value,
             status = status,
         )
         writeEntries(entries() + entry)
@@ -51,7 +51,9 @@ class SharedPreferencesReservationHistoryRepository(
             attemptedAt = Instant.parse(json.getString(KEY_ATTEMPTED_AT)),
             startDate = LocalDate.parse(json.getString(KEY_START_DATE)),
             endDate = LocalDate.parse(json.getString(KEY_END_DATE)),
-            maskedVehicleNumber = json.getString(KEY_MASKED_VEHICLE),
+            vehicleNumber = json.optString(KEY_VEHICLE_NUMBER)
+                .ifBlank { json.getString(KEY_LEGACY_MASKED_VEHICLE) },
+            visitorName = json.optString(KEY_VISITOR_NAME),
             status = ReservationHistoryStatus.valueOf(json.getString(KEY_STATUS)),
         )
     }.getOrNull()
@@ -64,7 +66,8 @@ class SharedPreferencesReservationHistoryRepository(
                     .put(KEY_ATTEMPTED_AT, entry.attemptedAt.toString())
                     .put(KEY_START_DATE, entry.startDate.toString())
                     .put(KEY_END_DATE, entry.endDate.toString())
-                    .put(KEY_MASKED_VEHICLE, entry.maskedVehicleNumber)
+                    .put(KEY_VEHICLE_NUMBER, entry.vehicleNumber)
+                    .put(KEY_VISITOR_NAME, entry.visitorName)
                     .put(KEY_STATUS, entry.status.name),
             )
         }
@@ -77,7 +80,9 @@ class SharedPreferencesReservationHistoryRepository(
         const val KEY_ATTEMPTED_AT = "attempted_at"
         const val KEY_START_DATE = "start_date"
         const val KEY_END_DATE = "end_date"
-        const val KEY_MASKED_VEHICLE = "masked_vehicle"
+        const val KEY_VEHICLE_NUMBER = "vehicle_number"
+        const val KEY_VISITOR_NAME = "visitor_name"
+        const val KEY_LEGACY_MASKED_VEHICLE = "masked_vehicle"
         const val KEY_STATUS = "status"
     }
 }
