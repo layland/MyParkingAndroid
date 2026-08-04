@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -151,7 +152,12 @@ private fun MainScreen(
             )
         },
         bottomBar = {
-            Column(Modifier.background(MaterialTheme.colorScheme.surface).padding(16.dp)) {
+            Column(
+                Modifier
+                    .background(MaterialTheme.colorScheme.surface)
+                    .navigationBarsPadding()
+                    .padding(16.dp),
+            ) {
                 Button(onClick = onRegister, modifier = Modifier.fillMaxWidth()) { Text("방문예약 등록") }
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(onClick = onOpenReservationSite, modifier = Modifier.fillMaxWidth()) { Text("공식 예약 사이트만 열기") }
