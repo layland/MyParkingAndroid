@@ -100,8 +100,8 @@ class RemainingTimeLoader(
               if (document.querySelector('input[type=password]')) {
                 return JSON.stringify({ status: 'login_required' });
               }
-              const item = Array.from(document.querySelectorAll('.nav-link-text')).find(element =>
-                /^\\d{1,4}\\s*\\uC2DC\\uAC04\\s*\\d{1,2}\\s*\\uBD84\\s*\\uB0A8\\uC74C$/.test(element.textContent.trim())
+              const item = document.querySelector(
+                'li[data-original-title="충전 잔여시간"] .nav-link-text'
               );
               return JSON.stringify(
                 item ? { status: 'available', value: item.textContent.trim() } : { status: 'unavailable' }

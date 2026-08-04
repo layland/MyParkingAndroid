@@ -5,15 +5,15 @@ import org.junit.Test
 
 class RemainingTimeTextTest {
     @Test
-    fun `accepts the verified remaining time label`() {
+    fun `preserves the official remaining-time text`() {
         assertEquals(
-            RemainingTimeResult.Available("111시간 16분 남음"),
-            RemainingTimeText.fromDisplayedText(" 111시간   16분 남음 "),
+            RemainingTimeResult.Available("104\uC2DC 55\uBD84 \uB0A8\uC74C"),
+            RemainingTimeText.fromDisplayedText(" 104\uC2DC 55\uBD84 \uB0A8\uC74C "),
         )
     }
 
     @Test
-    fun `rejects unrelated page text`() {
-        assertEquals(RemainingTimeResult.Unavailable, RemainingTimeText.fromDisplayedText("예약 목록"))
+    fun `rejects a blank remaining-time text`() {
+        assertEquals(RemainingTimeResult.Unavailable, RemainingTimeText.fromDisplayedText("   "))
     }
 }
