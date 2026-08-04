@@ -11,6 +11,8 @@ import com.my.parking.domain.VehiclePreferences
 import com.my.parking.domain.VisitorName
 import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -31,7 +33,6 @@ data class MainUiState(
     val savedVehicles: List<SavedVehicle> = emptyList(),
     val remainingTime: String = "남은 시간: 확인 중",
     val isRefreshingRemainingTime: Boolean = false,
-    val message: UiMessage? = null,
 ) {
     val period: ReservationPeriod get() = endDate?.let { ReservationPeriod.of(startDate, it) }
         ?: ReservationPeriod.of(startDate, duration)
@@ -40,16 +41,18 @@ data class MainUiState(
 class MainViewModel(private val vehiclePreferences: VehiclePreferences) : ViewModel() {
     private val mutableUiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = mutableUiState.asStateFlow()
+    private val mutableMessages = MutableSharedFlow<UiMessage>(extraBufferCapacity = 1)
+    val messages: SharedFlow<UiMessage> = mutableMessages
 
     init {
         reloadVehicles()
         vehiclePreferences.defaultVehicleNumber()?.let(::selectVehicle)
     }
 
-    fun updateVisitorName(value: String) = mutableUiState.update { it.copy(visitorName = value, message = null) }
+    fun updateVisitorName(value: String) = mutableUiState.update { it.copy(visitorName = value) }
 
     fun updateVehicleNumber(value: String) = mutableUiState.update { state ->
-        state.copy(vehicleNumber = value, visitorName = if (value == state.vehicleNumber) state.visitorName else "", message = null)
+        state.copy(vehicleNumber = value, visitorName = if (value == state.vehicleNumber) state.visitorName else "")
     }
 
     fun selectStartDate(value: LocalDate) = runCatching { ReservationDate.of(value) }
@@ -58,28 +61,27 @@ class MainViewModel(private val vehiclePreferences: VehiclePreferences) : ViewMo
                 state.copy(
                     startDate = start,
                     endDate = state.endDate?.takeIf { !it.value.isBefore(start.value) && !it.value.isAfter(start.value.plusDays(ReservationPeriod.MAX_DURATION_DAYS - 1L)) },
-                    message = null,
                 )
             }
         }.onFailure(::showError)
 
     fun selectEndDate(value: LocalDate) = runCatching { ReservationDate.of(value) }
         .map { ReservationPeriod.of(uiState.value.startDate, it).endDate }
-        .onSuccess { end -> mutableUiState.update { it.copy(endDate = end, periodMode = PeriodMode.END_DATE, message = null) } }
+        .onSuccess { end -> mutableUiState.update { it.copy(endDate = end, periodMode = PeriodMode.END_DATE) } }
         .onFailure(::showError)
 
     fun selectDuration(value: ReservationDurationOption) = mutableUiState.update {
-        it.copy(duration = value, endDate = null, periodMode = PeriodMode.DURATION, message = null)
+        it.copy(duration = value, endDate = null, periodMode = PeriodMode.DURATION)
     }
 
     fun selectPeriodMode(value: PeriodMode) = mutableUiState.update {
-        it.copy(periodMode = value, endDate = if (value == PeriodMode.DURATION) null else it.period.endDate, message = null)
+        it.copy(periodMode = value, endDate = if (value == PeriodMode.DURATION) null else it.period.endDate)
     }
 
     fun saveVehicle() = runCatching(::draft).onSuccess { draft ->
         vehiclePreferences.saveReservationDraft(draft)
         reloadVehicles()
-        mutableUiState.update { it.copy(message = UiMessage("차량번호를 저장했습니다.", MessageKind.SUCCESS)) }
+        showMessage("차량번호를 저장했습니다.", MessageKind.SUCCESS)
     }.onFailure(::showError)
 
     fun selectVehicle(number: String) = runCatching { VehicleNumber.of(number) }.onSuccess { vehicle ->
@@ -92,15 +94,15 @@ class MainViewModel(private val vehiclePreferences: VehiclePreferences) : ViewMo
                 duration = ReservationDurationOption.ONE_DAY,
                 endDate = null,
                 periodMode = PeriodMode.DURATION,
-                message = null,
             )
         }
     }.onFailure(::showError)
 
     fun deleteCurrentVehicle() = runCatching { VehicleNumber.of(uiState.value.vehicleNumber) }.onSuccess { vehicle ->
         vehiclePreferences.removeVehicleNumber(vehicle)
-        mutableUiState.update { it.copy(vehicleNumber = "", visitorName = "", message = UiMessage("차량번호를 삭제했습니다.", MessageKind.INFO)) }
+        mutableUiState.update { it.copy(vehicleNumber = "", visitorName = "") }
         reloadVehicles()
+        showMessage("차량번호를 삭제했습니다.", MessageKind.INFO)
     }.onFailure(::showError)
 
     fun beginRemainingTimeRefresh(): Boolean {
@@ -121,8 +123,6 @@ class MainViewModel(private val vehiclePreferences: VehiclePreferences) : ViewMo
         )
     }
 
-    fun consumeMessage() = mutableUiState.update { it.copy(message = null) }
-
     fun reservationDraftOrNull(): ReservationDraft? = runCatching(::draft).getOrElse { showError(it); null }
 
     private fun draft(): ReservationDraft {
@@ -142,7 +142,11 @@ class MainViewModel(private val vehiclePreferences: VehiclePreferences) : ViewMo
         })
     }
 
-    private fun showError(error: Throwable) = mutableUiState.update {
-        it.copy(message = UiMessage(error.message ?: "알 수 없는 오류가 발생했어요.", MessageKind.ERROR))
+    private fun showMessage(text: String, kind: MessageKind) {
+        mutableMessages.tryEmit(UiMessage(text, kind))
+    }
+
+    private fun showError(error: Throwable) {
+        showMessage(error.message ?: "알 수 없는 오류가 발생했어요.", MessageKind.ERROR)
     }
 }

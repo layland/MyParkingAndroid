@@ -3,6 +3,7 @@ package com.my.parking.ui
 import android.app.DatePickerDialog
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -46,7 +47,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,6 +56,7 @@ import com.my.parking.MyParkingApplication
 import com.my.parking.domain.ReservationDurationOption
 import com.my.parking.domain.ReservationPeriod
 import java.time.LocalDate
+import kotlinx.coroutines.flow.collect
 
 /** Compose entry screen for selecting a reservation period and a saved vehicle. */
 class MainActivity : AppCompatActivity() {
@@ -74,6 +75,11 @@ class MainActivity : AppCompatActivity() {
         setContent {
             MyParkingTheme {
                 val state by viewModel.uiState.collectAsState()
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    viewModel.messages.collect { message ->
+                        Toast.makeText(this@MainActivity, message.text, Toast.LENGTH_SHORT).show()
+                    }
+                }
                 MainScreen(
                     state = state,
                     onVisitorNameChange = viewModel::updateVisitorName,
@@ -96,7 +102,6 @@ class MainActivity : AppCompatActivity() {
                     onRegister = { viewModel.reservationDraftOrNull()?.let { startActivity(ReservationWebActivity.intentFor(this, it)) } },
                     onVehicleSelected = viewModel::selectVehicle,
                     onDeleteVehicle = viewModel::deleteCurrentVehicle,
-                    onMessageShown = viewModel::consumeMessage,
                 )
             }
         }
@@ -138,7 +143,6 @@ private fun MainScreen(
     onRegister: () -> Unit,
     onVehicleSelected: (String) -> Unit,
     onDeleteVehicle: () -> Unit,
-    onMessageShown: () -> Unit,
 ) {
     var vehiclesVisible by remember { mutableStateOf(false) }
     Scaffold(
@@ -173,7 +177,6 @@ private fun MainScreen(
                     }
                 }
             }
-            state.message?.let { message -> item { StatusBanner(message, onMessageShown) } }
             item { PeriodCard(state, onStartDateClick, onEndDateClick, onDurationSelect, onPeriodModeSelect) }
             item {
                 VehicleCard(
@@ -198,22 +201,6 @@ private fun MainScreen(
                 onDelete = { onDeleteVehicle(); vehiclesVisible = false },
             )
         }
-    }
-}
-
-@Composable
-private fun StatusBanner(message: UiMessage, onDismiss: () -> Unit) {
-    val color = when (message.kind) {
-        MessageKind.ERROR -> MaterialTheme.colorScheme.errorContainer
-        MessageKind.SUCCESS -> Color(0xFFE6F4EA)
-        MessageKind.INFO -> MaterialTheme.colorScheme.secondaryContainer
-    }
-    Row(
-        Modifier.fillMaxWidth().background(color, RoundedCornerShape(14.dp)).padding(start = 16.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(message.text, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        TextButton(onClick = onDismiss) { Text("닫기") }
     }
 }
 
