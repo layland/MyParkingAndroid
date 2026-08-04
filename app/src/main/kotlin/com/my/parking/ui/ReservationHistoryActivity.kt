@@ -1,22 +1,43 @@
 package com.my.parking.ui
 
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import android.widget.BaseAdapter
-import android.widget.Button
-import android.widget.ListView
-import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
+import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
-import com.google.android.material.appbar.MaterialToolbar
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import com.my.parking.MyParkingApplication
-import com.my.parking.R
-import com.my.parking.domain.ReservationHistoryEntry
 import com.my.parking.domain.ReservationHistoryRepository
 import com.my.parking.domain.ReservationHistoryStatus
 import com.my.parking.domain.VehicleReservationHistory
@@ -24,120 +45,120 @@ import com.my.parking.domain.groupByVehicle
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
-/** Displays local records of submission results verified by the server response. */
+data class HistoryUiState(val histories: List<VehicleReservationHistory> = emptyList())
+
+class ReservationHistoryViewModel(private val repository: ReservationHistoryRepository) : ViewModel() {
+    private val mutableUiState = MutableStateFlow(HistoryUiState())
+    val uiState: StateFlow<HistoryUiState> = mutableUiState.asStateFlow()
+
+    init { refresh() }
+
+    fun refresh() { mutableUiState.value = HistoryUiState(repository.entries().groupByVehicle()) }
+    fun clear() { repository.clear(); refresh() }
+}
+
+/** Compose screen for local, server-verified reservation submission results. */
 class ReservationHistoryActivity : AppCompatActivity() {
-    private lateinit var historyRepository: ReservationHistoryRepository
-    private lateinit var historyList: ListView
-    private lateinit var emptyState: View
-    private lateinit var clearButton: Button
-    private lateinit var adapter: ReservationHistoryAdapter
+    private val viewModel: ReservationHistoryViewModel by viewModels {
+        val repository = (application as MyParkingApplication).appContainer.reservationHistoryRepository
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = ReservationHistoryViewModel(repository) as T
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_reservation_history)
-        historyRepository = (application as MyParkingApplication).appContainer.reservationHistoryRepository
-        historyList = findViewById(R.id.reservation_history_list)
-        emptyState = findViewById(R.id.reservation_history_empty)
-        clearButton = findViewById(R.id.clear_reservation_history_button)
-        adapter = ReservationHistoryAdapter(emptyList())
-        historyList.adapter = adapter
-
-        findViewById<MaterialToolbar>(R.id.reservation_history_toolbar).apply {
-            val initialTopPadding = paddingTop
-            ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
-                view.updatePadding(top = initialTopPadding + insets.getInsets(WindowInsetsCompat.Type.statusBars()).top)
-                insets
+        setContent {
+            MyParkingTheme {
+                val state by viewModel.uiState.collectAsState()
+                ReservationHistoryScreen(state, onBack = ::finish, onClear = viewModel::clear)
             }
-            ViewCompat.requestApplyInsets(this)
-            setNavigationOnClickListener { finish() }
         }
-        clearButton.setOnClickListener { confirmClear() }
-        renderEntries()
     }
 
     override fun onResume() {
         super.onResume()
-        if (::adapter.isInitialized) renderEntries()
+        viewModel.refresh()
     }
+}
 
-    private fun renderEntries() {
-        val entries = historyRepository.entries()
-        adapter.replace(entries.groupByVehicle())
-        historyList.visibility = if (entries.isEmpty()) View.GONE else View.VISIBLE
-        emptyState.visibility = if (entries.isEmpty()) View.VISIBLE else View.GONE
-        clearButton.isEnabled = entries.isNotEmpty()
-    }
-
-    private fun confirmClear() {
-        AlertDialog.Builder(this)
-            .setTitle("예약 이력 전체 삭제")
-            .setMessage("저장된 예약 제출 이력을 모두 삭제할까요?")
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton("전체 삭제") { _, _ ->
-                historyRepository.clear()
-                renderEntries()
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReservationHistoryScreen(state: HistoryUiState, onBack: () -> Unit, onClear: () -> Unit) {
+    var confirmClear by remember { mutableStateOf(false) }
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("예약 이력", fontWeight = FontWeight.SemiBold) },
+                navigationIcon = { TextButton(onClick = onBack) { Text("뒤로") } },
+                actions = { TextButton(onClick = { confirmClear = true }, enabled = state.histories.isNotEmpty()) { Text("전체 삭제") } },
+            )
+        },
+    ) { padding ->
+        if (state.histories.isEmpty()) {
+            Column(
+                Modifier.fillMaxSize().padding(padding).padding(32.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("아직 예약 제출 이력이 없습니다", style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(8.dp))
+                Text("예약을 등록한 뒤 서버 응답이 확인되면 이곳에 표시됩니다.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            .show()
-    }
-
-    private class ReservationHistoryAdapter(
-        private var vehicleHistories: List<VehicleReservationHistory>,
-    ) : BaseAdapter() {
-        override fun getCount(): Int = vehicleHistories.size
-
-        override fun getItem(position: Int): VehicleReservationHistory = vehicleHistories[position]
-
-        override fun getItemId(position: Int): Long = getItem(position).entries.first().attemptedAt.toEpochMilli()
-
-        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-            val view = convertView ?: LayoutInflater.from(parent.context)
-                .inflate(R.layout.item_reservation_history, parent, false)
-            val history = getItem(position)
-            view.findViewById<TextView>(R.id.history_vehicle).text = history.vehicleNumber
-            view.findViewById<TextView>(R.id.history_visitor_name).apply {
-                text = history.visitorName
-                visibility = if (history.visitorName.isBlank()) View.GONE else View.VISIBLE
-            }
-            val schedules = view.findViewById<ViewGroup>(R.id.history_schedules)
-            schedules.removeAllViews()
-            history.entries.forEach { entry ->
-                schedules.addView(createScheduleView(schedules, entry))
-            }
-            return view
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = padding.calculateTopPadding() + 12.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) { items(state.histories, key = { it.vehicleNumber }) { VehicleHistoryCard(it) } }
         }
+    }
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("예약 이력 전체 삭제") },
+            text = { Text("저장된 예약 제출 이력을 모두 삭제할까요?") },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("취소") } },
+            confirmButton = { TextButton(onClick = { onClear(); confirmClear = false }) { Text("전체 삭제", color = MaterialTheme.colorScheme.error) } },
+        )
+    }
+}
 
-        private fun createScheduleView(parent: ViewGroup, entry: ReservationHistoryEntry): View =
-            LayoutInflater.from(parent.context).inflate(R.layout.item_reservation_history_schedule, parent, false).apply {
-                findViewById<TextView>(R.id.history_status).apply {
-                    text = when (entry.status) {
-                        ReservationHistoryStatus.SUCCESS -> "등록 성공"
-                        ReservationHistoryStatus.FAILURE -> "등록 실패"
+@Composable
+private fun VehicleHistoryCard(history: VehicleReservationHistory) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.padding(20.dp)) {
+            Text(history.vehicleNumber, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            if (history.visitorName.isNotBlank()) Text(history.visitorName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(14.dp))
+            history.entries.forEachIndexed { index, entry ->
+                if (index > 0) Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                    Column {
+                        Text("${entry.startDate} ~ ${entry.endDate}", fontWeight = FontWeight.Medium)
+                        Text(entry.attemptedAt.atZone(ZoneId.systemDefault()).format(ATTEMPTED_AT_FORMAT), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    setBackgroundResource(
-                        if (entry.status == ReservationHistoryStatus.SUCCESS) R.drawable.bg_status_success
-                        else R.drawable.bg_status_error,
-                    )
-                    setTextColor(
-                        context.getColor(
-                            if (entry.status == ReservationHistoryStatus.SUCCESS) R.color.status_success_on
-                            else R.color.status_error_on,
-                        ),
-                    )
+                    StatusChip(entry.status)
                 }
-                findViewById<TextView>(R.id.history_period).text = "${entry.startDate} ~ ${entry.endDate}"
-                findViewById<TextView>(R.id.history_attempted_at).text =
-                    entry.attemptedAt.atZone(ZoneId.systemDefault()).format(ATTEMPTED_AT_FORMAT)
             }
-
-        fun replace(newVehicleHistories: List<VehicleReservationHistory>) {
-            vehicleHistories = newVehicleHistories
-            notifyDataSetChanged()
-        }
-
-        private companion object {
-            val ATTEMPTED_AT_FORMAT: DateTimeFormatter =
-                DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm", Locale.KOREA)
         }
     }
 }
+
+@Composable
+private fun StatusChip(status: ReservationHistoryStatus) {
+    val success = status == ReservationHistoryStatus.SUCCESS
+    Text(
+        if (success) "등록 성공" else "등록 실패",
+        modifier = Modifier.padding(start = 8.dp).then(Modifier),
+        color = if (success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+        style = MaterialTheme.typography.labelLarge,
+    )
+}
+
+private val ATTEMPTED_AT_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm", Locale.KOREA)
