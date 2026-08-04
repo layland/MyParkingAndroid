@@ -31,7 +31,7 @@ import org.json.JSONObject
 /** Submits through the official site's authenticated WebView session without reading cookies. */
 class ReservationWebActivity : AppCompatActivity() {
     private lateinit var webView: WebView
-    private lateinit var draft: ReservationDraft
+    private var draft: ReservationDraft? = null
     private var confirmationShown = false
     private var resultHandled = false
     private val submissionGate = ReservationSubmissionGate()
@@ -44,7 +44,7 @@ class ReservationWebActivity : AppCompatActivity() {
             if (webView.canGoBack()) webView.goBack() else finish()
         }
 
-        draft = readDraft()
+        draft = readDraftOrNull()
         webView = findViewById<WebView>(R.id.reservation_web_view).apply {
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String) {
@@ -75,12 +75,12 @@ class ReservationWebActivity : AppCompatActivity() {
         })
     }
 
-    private fun readDraft(): ReservationDraft {
-        val vehicle = requireNotNull(intent.getStringExtra(EXTRA_VEHICLE_NUMBER))
-        val visitorName = requireNotNull(intent.getStringExtra(EXTRA_VISITOR_NAME))
+    private fun readDraftOrNull(): ReservationDraft? {
+        val vehicle = intent.getStringExtra(EXTRA_VEHICLE_NUMBER) ?: return null
+        val visitorName = intent.getStringExtra(EXTRA_VISITOR_NAME) ?: return null
         val durationOption = intent.getStringExtra(EXTRA_DURATION_OPTION)
-        val startDate = requireNotNull(intent.getStringExtra(EXTRA_START_DATE))
-        val endDate = requireNotNull(intent.getStringExtra(EXTRA_END_DATE))
+        val startDate = intent.getStringExtra(EXTRA_START_DATE) ?: return null
+        val endDate = intent.getStringExtra(EXTRA_END_DATE) ?: return null
         return ReservationDraft(
             visitorName = VisitorName.of(visitorName),
             vehicleNumber = VehicleNumber.of(vehicle),
@@ -93,6 +93,7 @@ class ReservationWebActivity : AppCompatActivity() {
     }
 
     private fun confirmAfterLoginIfReady() {
+        val reservationDraft = draft ?: return
         webView.evaluateJavascript("(function(){ return !document.querySelector('input[type=password]'); })()") { result ->
             if (result == "true" && !confirmationShown && !submissionGate.hasStarted && !isFinishing) {
                 confirmationShown = true
@@ -100,7 +101,7 @@ class ReservationWebActivity : AppCompatActivity() {
                     .setTitle(R.string.reservation_confirmation_title)
                     .setMessage(
                         getString(R.string.reservation_confirmation_message) + "\n\n" +
-                            "총 ${ReservationPeriod.splitForSubmission(draft.reservationPeriod).size}건으로 나누어 등록합니다.",
+                            "총 ${ReservationPeriod.splitForSubmission(reservationDraft.reservationPeriod).size}건으로 나누어 등록합니다.",
                     )
                     .setNegativeButton(R.string.cancel, null)
                     .setPositiveButton(R.string.confirm) { _, _ -> submitReservation() }
@@ -110,16 +111,18 @@ class ReservationWebActivity : AppCompatActivity() {
     }
 
     private fun submitReservation() {
+        val reservationDraft = draft ?: return
         if (!submissionGate.begin()) return
         showMessage(getString(R.string.reservation_submitting_message))
 
-        val payloads = ReservationPeriod.splitForSubmission(draft.reservationPeriod)
-            .map { period -> ReservationPostContract.parameters(draft, period) }
+        val payloads = ReservationPeriod.splitForSubmission(reservationDraft.reservationPeriod)
+            .map { period -> ReservationPostContract.parameters(reservationDraft, period) }
         webView.evaluateJavascript(submissionScript(org.json.JSONArray(payloads).toString()), null)
     }
 
     private fun handleSubmissionResult(encodedResult: String) {
         if (resultHandled) return
+        val reservationDraft = draft ?: return
         resultHandled = true
         val result = runCatching {
             val responseText = String(Base64.decode(encodedResult, Base64.NO_WRAP), Charsets.UTF_8)
@@ -129,7 +132,7 @@ class ReservationWebActivity : AppCompatActivity() {
             ReservationSubmissionResult.Failure(getString(R.string.reservation_result_unknown))
         }
         (application as MyParkingApplication).appContainer.reservationHistoryRepository.record(
-            draft = draft,
+            draft = reservationDraft,
             status = result.historyStatus(),
         )
 
