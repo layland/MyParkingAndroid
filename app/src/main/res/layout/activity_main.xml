@@ -73,9 +73,9 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="16dp"
                 app:cardBackgroundColor="@color/surface_variant"
-                app:cardCornerRadius="20dp"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/outline"
                 app:strokeWidth="1dp">
@@ -84,7 +84,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="20dp">
+                    android:padding="16dp">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -93,19 +93,11 @@
                         android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
                         android:textColor="@color/on_surface" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="시작일과 종료일을 선택하세요. 최대 90일까지 4일씩 나누어 등록합니다."
-                        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-                        android:textColor="@color/on_surface_variant" />
-
                     <com.google.android.material.button.MaterialButtonToggleGroup
                         android:id="@+id/reservation_period_mode_toggle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
+                        android:layout_marginTop="12dp"
                         app:selectionRequired="true"
                         app:singleSelection="true">
 
@@ -247,7 +239,7 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="12dp"
                 app:cardBackgroundColor="@color/surface_variant"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
@@ -259,7 +251,8 @@
                     android:layout_height="wrap_content"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
-                    android:padding="16dp">
+                    android:paddingVertical="4dp"
+                    android:paddingHorizontal="12dp">
 
                     <TextView
                         android:id="@+id/remaining_time_value"
