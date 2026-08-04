@@ -9,6 +9,7 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ListView
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -56,7 +57,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mainDrawer: DrawerLayout
     private lateinit var visitorNameInput: MaterialAutoCompleteTextView
     private lateinit var vehicleNumberInput: EditText
-    private lateinit var savedVehicleSpinner: Spinner
+    private lateinit var savedVehicleList: ListView
     private lateinit var vehicleManagementContent: View
     private lateinit var vehicleManagementToggle: Button
     private lateinit var vehiclePreferences: VehiclePreferences
@@ -107,7 +108,7 @@ class MainActivity : AppCompatActivity() {
         visitorNameInput = findViewById(R.id.visitor_name_input)
         vehicleNumberInput = findViewById(R.id.vehicle_number_input)
         lastVehicleNumberText = vehicleNumberInput.text.toString()
-        savedVehicleSpinner = findViewById(R.id.drawer_saved_vehicle_spinner)
+        savedVehicleList = findViewById(R.id.drawer_saved_vehicle_list)
         vehicleManagementContent = findViewById(R.id.vehicle_management_content)
         vehicleManagementToggle = findViewById(R.id.vehicle_management_toggle)
         (vehicleManagementToggle.parent.parent as View).visibility = View.GONE
@@ -115,7 +116,7 @@ class MainActivity : AppCompatActivity() {
         remainingTimeLoader = RemainingTimeLoader(this, ::renderRemainingTimeResult)
         configureDurationSpinner()
         configurePeriodSelectionMode()
-        configureSavedVehicleSpinner()
+        configureSavedVehicleList()
         renderSavedVehicles()
         renderDates()
 
@@ -165,23 +166,9 @@ class MainActivity : AppCompatActivity() {
         else -> false
     }
 
-    private fun configureSavedVehicleSpinner() {
-        savedVehicleSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
-                savedVehicleNumbers.getOrNull(position)?.let { selectedVehicle ->
-                    vehicleNumberInput.setText(selectedVehicle)
-                    VehicleNumber.of(selectedVehicle).let { vehicleNumber ->
-                        vehiclePreferences.saveDefaultVehicleNumber(vehicleNumber)
-                        visitorNameInput.setText(vehiclePreferences.visitorNameFor(vehicleNumber)?.value.orEmpty())
-                        selectedStartDate = ReservationDate.today()
-                        selectedDurationOption = ReservationDurationOption.ONE_DAY
-                        selectedEndDate = null
-                        renderDates()
-                    }
-                }
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>) = Unit
+    private fun configureSavedVehicleList() {
+        savedVehicleList.setOnItemClickListener { _, _, position, _ ->
+            savedVehicleNumbers.getOrNull(position)?.let(::loadSavedVehicle)
         }
     }
 
@@ -230,7 +217,7 @@ class MainActivity : AppCompatActivity() {
         savedVehicleNumbers = vehiclePreferences.vehicleNumbers()
         findViewById<View>(R.id.drawer_saved_vehicle_label).visibility =
             if (savedVehicleNumbers.isEmpty()) View.GONE else View.VISIBLE
-        savedVehicleSpinner.visibility = if (savedVehicleNumbers.isEmpty()) View.GONE else View.VISIBLE
+        savedVehicleList.visibility = if (savedVehicleNumbers.isEmpty()) View.GONE else View.VISIBLE
         if (savedVehicleNumbers.isEmpty()) {
             visitorNameInput.setAdapter(
                 ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, emptyList<String>()),
@@ -243,7 +230,7 @@ class MainActivity : AppCompatActivity() {
                 .let(vehiclePreferences::visitorNameFor)
                 ?.value
                 .orEmpty()
-            if (name.isBlank()) VehicleNumber.of(savedVehicle).masked() else "$name · ${VehicleNumber.of(savedVehicle).masked()}"
+            if (name.isBlank()) savedVehicle else "$name · $savedVehicle"
         }
         val vehicleByLabel = vehicleLabels.zip(savedVehicleNumbers).toMap()
         visitorNameInput.setAdapter(
@@ -257,12 +244,15 @@ class MainActivity : AppCompatActivity() {
                 ?.let(vehicleByLabel::get)
                 ?.let(::loadSavedVehicle)
         }
-        savedVehicleSpinner.adapter = ArrayAdapter(
+        savedVehicleList.adapter = ArrayAdapter(
             this,
-            android.R.layout.simple_spinner_item,
+            android.R.layout.simple_list_item_activated_1,
             vehicleLabels,
-        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        savedVehicleSpinner.setSelection(savedVehicleNumbers.indexOf(selectedVehicle).coerceAtLeast(0))
+        )
+        savedVehicleList.setItemChecked(
+            savedVehicleNumbers.indexOf(selectedVehicle).coerceAtLeast(0),
+            true,
+        )
     }
 
     private fun loadSavedVehicle(selectedVehicle: String) {

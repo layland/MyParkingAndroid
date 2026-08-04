@@ -194,6 +194,7 @@
                     android:imeOptions="actionNext"
                     android:inputType="textPersonName"
                     android:maxLength="40"
+                    android:paddingStart="16dp"
                     android:singleLine="true"
                     android:completionThreshold="0" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -407,11 +408,14 @@
             android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle2"
             android:textColor="@color/on_surface_variant" />
 
-        <Spinner
-            android:id="@+id/drawer_saved_vehicle_spinner"
+        <ListView
+            android:id="@+id/drawer_saved_vehicle_list"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp" />
+            android:layout_marginTop="4dp"
+            android:choiceMode="singleChoice"
+            android:divider="@color/outline"
+            android:dividerHeight="1dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/drawer_delete_vehicle_button"
