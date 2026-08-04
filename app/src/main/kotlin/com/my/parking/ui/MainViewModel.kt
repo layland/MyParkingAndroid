@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import com.my.parking.domain.RemainingTimeResult
 import com.my.parking.domain.ReservationDate
 import com.my.parking.domain.ReservationDraft
-import com.my.parking.domain.ReservationDurationOption
 import com.my.parking.domain.ReservationPeriod
 import com.my.parking.domain.VehicleNumber
 import com.my.parking.domain.VehiclePreferences
@@ -17,7 +16,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-enum class PeriodMode { DURATION, END_DATE }
 enum class MessageKind { INFO, SUCCESS, ERROR }
 
 data class UiMessage(val text: String, val kind: MessageKind)
@@ -25,17 +23,14 @@ data class SavedVehicle(val number: String, val visitorName: String)
 
 data class MainUiState(
     val startDate: ReservationDate = ReservationDate.today(),
-    val duration: ReservationDurationOption = ReservationDurationOption.ONE_DAY,
-    val endDate: ReservationDate? = null,
-    val periodMode: PeriodMode = PeriodMode.DURATION,
+    val endDate: ReservationDate = ReservationDate.today(),
     val visitorName: String = "",
     val vehicleNumber: String = "",
     val savedVehicles: List<SavedVehicle> = emptyList(),
     val remainingTime: String = "남은 시간: 확인 중",
     val isRefreshingRemainingTime: Boolean = false,
 ) {
-    val period: ReservationPeriod get() = endDate?.let { ReservationPeriod.of(startDate, it) }
-        ?: ReservationPeriod.of(startDate, duration)
+    val period: ReservationPeriod get() = ReservationPeriod.of(startDate, endDate)
 }
 
 class MainViewModel(private val vehiclePreferences: VehiclePreferences) : ViewModel() {
@@ -60,23 +55,24 @@ class MainViewModel(private val vehiclePreferences: VehiclePreferences) : ViewMo
             mutableUiState.update { state ->
                 state.copy(
                     startDate = start,
-                    endDate = state.endDate?.takeIf { !it.value.isBefore(start.value) && !it.value.isAfter(start.value.plusDays(ReservationPeriod.MAX_DURATION_DAYS - 1L)) },
+                    endDate = state.endDate.takeIf {
+                        !it.value.isBefore(start.value) && !it.value.isAfter(start.value.plusDays(ReservationPeriod.MAX_DURATION_DAYS - 1L))
+                    } ?: start,
                 )
             }
         }.onFailure(::showError)
 
     fun selectEndDate(value: LocalDate) = runCatching { ReservationDate.of(value) }
         .map { ReservationPeriod.of(uiState.value.startDate, it).endDate }
-        .onSuccess { end -> mutableUiState.update { it.copy(endDate = end, periodMode = PeriodMode.END_DATE) } }
+        .onSuccess { end -> mutableUiState.update { it.copy(endDate = end) } }
         .onFailure(::showError)
 
-    fun selectDuration(value: ReservationDurationOption) = mutableUiState.update {
-        it.copy(duration = value, endDate = null, periodMode = PeriodMode.DURATION)
+    fun selectQuickPeriodEnding(value: LocalDate) = runCatching {
+        ReservationPeriod.of(ReservationDate.today(), ReservationDate.of(value))
+    }.onSuccess { period ->
+        mutableUiState.update { it.copy(startDate = period.startDate, endDate = period.endDate) }
     }
-
-    fun selectPeriodMode(value: PeriodMode) = mutableUiState.update {
-        it.copy(periodMode = value, endDate = if (value == PeriodMode.DURATION) null else it.period.endDate)
-    }
+        .onFailure(::showError)
 
     fun saveVehicle() = runCatching(::draft).onSuccess { draft ->
         vehiclePreferences.saveReservationDraft(draft)
@@ -91,9 +87,7 @@ class MainViewModel(private val vehiclePreferences: VehiclePreferences) : ViewMo
                 vehicleNumber = vehicle.value,
                 visitorName = vehiclePreferences.visitorNameFor(vehicle)?.value.orEmpty(),
                 startDate = ReservationDate.today(),
-                duration = ReservationDurationOption.ONE_DAY,
-                endDate = null,
-                periodMode = PeriodMode.DURATION,
+                endDate = ReservationDate.today(),
             )
         }
     }.onFailure(::showError)
@@ -130,7 +124,7 @@ class MainViewModel(private val vehiclePreferences: VehiclePreferences) : ViewMo
         return ReservationDraft(
             visitorName = VisitorName.of(state.visitorName),
             vehicleNumber = VehicleNumber.of(state.vehicleNumber),
-            durationOption = if (state.periodMode == PeriodMode.DURATION) state.duration else null,
+            durationOption = null,
             reservationPeriod = state.period,
         )
     }

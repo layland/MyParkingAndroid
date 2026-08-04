@@ -4,11 +4,22 @@ import com.my.parking.domain.ReservationDraft
 import com.my.parking.domain.VehicleNumber
 import com.my.parking.domain.VehiclePreferences
 import com.my.parking.domain.VisitorName
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class MainViewModelTest {
+    @Test
+    fun selectingQuickPeriodSetsTodayAsStartAndSelectedDateAsEnd() {
+        val viewModel = MainViewModel(FakeVehiclePreferences())
+        val selectedDate = LocalDate.now().plusDays(2)
+
+        viewModel.selectQuickPeriodEnding(selectedDate)
+
+        assertEquals(LocalDate.now(), viewModel.uiState.value.startDate.value)
+        assertEquals(selectedDate, viewModel.uiState.value.endDate.value)
+    }
+
     @Test
     fun selectingSavedVehicleResetsPeriodAndLoadsVisitorName() {
         val preferences = FakeVehiclePreferences().apply {
@@ -30,8 +41,7 @@ class MainViewModelTest {
 
         assertEquals("12가3456", viewModel.uiState.value.vehicleNumber)
         assertEquals("홍길동", viewModel.uiState.value.visitorName)
-        assertEquals(PeriodMode.DURATION, viewModel.uiState.value.periodMode)
-        assertNull(viewModel.uiState.value.endDate)
+        assertEquals(viewModel.uiState.value.startDate, viewModel.uiState.value.endDate)
     }
 
     private class FakeVehiclePreferences : VehiclePreferences {

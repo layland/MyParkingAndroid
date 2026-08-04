@@ -53,7 +53,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.my.parking.MyParkingApplication
-import com.my.parking.domain.ReservationDurationOption
 import com.my.parking.domain.ReservationPeriod
 import java.time.LocalDate
 import kotlinx.coroutines.flow.collect
@@ -93,8 +92,7 @@ class MainActivity : AppCompatActivity() {
                             viewModel::selectEndDate,
                         )
                     },
-                    onDurationSelect = viewModel::selectDuration,
-                    onPeriodModeSelect = viewModel::selectPeriodMode,
+                    onQuickDateSelect = viewModel::selectQuickPeriodEnding,
                     onSaveVehicle = viewModel::saveVehicle,
                     onRefreshRemainingTime = ::refreshRemainingTime,
                     onOpenHistory = { startActivity(Intent(this, ReservationHistoryActivity::class.java)) },
@@ -134,8 +132,7 @@ private fun MainScreen(
     onVehicleNumberChange: (String) -> Unit,
     onStartDateClick: () -> Unit,
     onEndDateClick: () -> Unit,
-    onDurationSelect: (ReservationDurationOption) -> Unit,
-    onPeriodModeSelect: (PeriodMode) -> Unit,
+    onQuickDateSelect: (LocalDate) -> Unit,
     onSaveVehicle: () -> Unit,
     onRefreshRemainingTime: () -> Unit,
     onOpenHistory: () -> Unit,
@@ -177,7 +174,7 @@ private fun MainScreen(
                     }
                 }
             }
-            item { PeriodCard(state, onStartDateClick, onEndDateClick, onDurationSelect, onPeriodModeSelect) }
+            item { PeriodCard(state, onStartDateClick, onEndDateClick, onQuickDateSelect) }
             item {
                 VehicleCard(
                     state = state,
@@ -205,37 +202,47 @@ private fun MainScreen(
 }
 
 @Composable
-private fun PeriodCard(state: MainUiState, onStartClick: () -> Unit, onEndClick: () -> Unit, onDuration: (ReservationDurationOption) -> Unit, onMode: (PeriodMode) -> Unit) {
+private fun PeriodCard(state: MainUiState, onStartClick: () -> Unit, onEndClick: () -> Unit, onQuickDateSelect: (LocalDate) -> Unit) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("예약 기간", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = state.periodMode == PeriodMode.DURATION, onClick = { onMode(PeriodMode.DURATION) }, label = { Text("기간 선택") })
-                FilterChip(selected = state.periodMode == PeriodMode.END_DATE, onClick = { onMode(PeriodMode.END_DATE) }, label = { Text("종료일 직접 선택") })
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                DateRow(
+                    label = "시작일",
+                    value = state.startDate.displayText(),
+                    onClick = onStartClick,
+                    modifier = Modifier.weight(1f),
+                )
+                DateRow(
+                    label = "종료일",
+                    value = state.period.endDate.displayText(),
+                    onClick = onEndClick,
+                    modifier = Modifier.weight(1f),
+                )
             }
-            DateRow(label = "시작일", value = state.startDate.displayText(), onClick = onStartClick)
-            if (state.periodMode == PeriodMode.DURATION) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ReservationDurationOption.entries.toList().chunked(3).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            row.forEach { option ->
-                                FilterChip(selected = option == state.duration, onClick = { onDuration(option) }, label = { Text(option.displayText) }, modifier = Modifier.weight(1f))
-                            }
-                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-                        }
-                    }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                listOf("오늘" to 0L, "내일까지" to 1L, "모레까지" to 2L).forEach { (label, offset) ->
+                    FilterChip(
+                        selected = state.startDate.value == LocalDate.now().plusDays(offset) && state.period.durationDays == 1,
+                        onClick = { onQuickDateSelect(LocalDate.now().plusDays(offset)) },
+                        label = { Text(label) },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
-            } else DateRow(label = "종료일", value = state.period.endDate.displayText(), onClick = onEndClick)
+            }
             Text("${state.startDate.displayText()} ~ ${state.period.endDate.displayText()} · ${state.period.durationDays}일", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
         }
     }
 }
 
 @Composable
-private fun DateRow(label: String, value: String, onClick: () -> Unit) = Row(
-    modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp)).padding(16.dp),
+private fun DateRow(label: String, value: String, onClick: () -> Unit, modifier: Modifier = Modifier) = Row(
+    modifier = modifier.clickable(onClick = onClick).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 16.dp),
     horizontalArrangement = Arrangement.SpaceBetween,
-) { Text(label); Text(value, fontWeight = FontWeight.Medium) }
+) {
+    Text(label, maxLines = 1)
+    Text(value, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+}
 
 @Composable
 private fun VehicleCard(state: MainUiState, onVisitorNameChange: (String) -> Unit, onVehicleNumberChange: (String) -> Unit, onOpenVehicles: () -> Unit, onSaveVehicle: () -> Unit) {
