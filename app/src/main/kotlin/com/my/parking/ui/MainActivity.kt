@@ -50,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -172,6 +173,14 @@ private fun MainScreen(
                 Button(onClick = onRegister, modifier = Modifier.fillMaxWidth()) { Text("방문예약 등록") }
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(onClick = onOpenReservationSite, modifier = Modifier.fillMaxWidth()) { Text("공식 예약 사이트만 열기") }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "경선♡",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         },
     ) { padding ->
