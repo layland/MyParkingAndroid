@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -68,6 +69,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
     private lateinit var remainingTimeLoader: RemainingTimeLoader
+    private val historyLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode != RESULT_OK) return@registerForActivityResult
+        val vehicleNumber = result.data?.getStringExtra(HISTORY_VEHICLE_NUMBER) ?: return@registerForActivityResult
+        viewModel.loadVehicleFromHistory(vehicleNumber, result.data?.getStringExtra(HISTORY_VISITOR_NAME).orEmpty())
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -96,7 +102,7 @@ class MainActivity : AppCompatActivity() {
                     onQuickDateSelect = viewModel::selectQuickPeriodEnding,
                     onSaveVehicle = viewModel::saveVehicle,
                     onRefreshRemainingTime = ::refreshRemainingTime,
-                    onOpenHistory = { startActivity(Intent(this, ReservationHistoryActivity::class.java)) },
+                    onOpenHistory = { historyLauncher.launch(Intent(this, ReservationHistoryActivity::class.java)) },
                     onOpenReservationSite = { startActivity(Intent(this, ReservationWebActivity::class.java)) },
                     onRegister = { viewModel.reservationDraftOrNull()?.let { startActivity(ReservationWebActivity.intentFor(this, it)) } },
                     onVehicleSelected = viewModel::selectVehicle,
@@ -122,6 +128,11 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         if (::remainingTimeLoader.isInitialized) remainingTimeLoader.cancel()
         super.onDestroy()
+    }
+
+    private companion object {
+        const val HISTORY_VEHICLE_NUMBER = "history_vehicle_number"
+        const val HISTORY_VISITOR_NAME = "history_visitor_name"
     }
 }
 

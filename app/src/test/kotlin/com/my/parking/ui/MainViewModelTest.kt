@@ -44,6 +44,18 @@ class MainViewModelTest {
         assertEquals(viewModel.uiState.value.startDate, viewModel.uiState.value.endDate)
     }
 
+    @Test
+    fun loadingVehicleFromHistoryFillsVehicleAndVisitorWithoutChangingDefaultVehicle() {
+        val preferences = FakeVehiclePreferences()
+        val viewModel = MainViewModel(preferences)
+
+        viewModel.loadVehicleFromHistory("34나5678", "방문자")
+
+        assertEquals("34나5678", viewModel.uiState.value.vehicleNumber)
+        assertEquals("방문자", viewModel.uiState.value.visitorName)
+        assertEquals(null, preferences.defaultVehicleNumber())
+    }
+
     private class FakeVehiclePreferences : VehiclePreferences {
         private val vehicles = linkedMapOf<String, VisitorName>()
         private var defaultVehicle: String? = null

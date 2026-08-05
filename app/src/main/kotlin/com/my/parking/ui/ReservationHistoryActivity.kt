@@ -1,5 +1,6 @@
 package com.my.parking.ui
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -76,7 +78,12 @@ class ReservationHistoryActivity : AppCompatActivity() {
         setContent {
             MyParkingTheme {
                 val state by viewModel.uiState.collectAsState()
-                ReservationHistoryScreen(state, onBack = ::finish, onClear = viewModel::clear)
+                ReservationHistoryScreen(
+                    state = state,
+                    onBack = ::finish,
+                    onClear = viewModel::clear,
+                    onVehicleSelected = ::returnSelectedVehicle,
+                )
             }
         }
     }
@@ -85,11 +92,31 @@ class ReservationHistoryActivity : AppCompatActivity() {
         super.onResume()
         viewModel.refresh()
     }
+
+    private fun returnSelectedVehicle(history: VehicleReservationHistory) {
+        setResult(
+            RESULT_OK,
+            Intent()
+                .putExtra(EXTRA_VEHICLE_NUMBER, history.vehicleNumber)
+                .putExtra(EXTRA_VISITOR_NAME, history.visitorName),
+        )
+        finish()
+    }
+
+    private companion object {
+        const val EXTRA_VEHICLE_NUMBER = "history_vehicle_number"
+        const val EXTRA_VISITOR_NAME = "history_visitor_name"
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReservationHistoryScreen(state: HistoryUiState, onBack: () -> Unit, onClear: () -> Unit) {
+private fun ReservationHistoryScreen(
+    state: HistoryUiState,
+    onBack: () -> Unit,
+    onClear: () -> Unit,
+    onVehicleSelected: (VehicleReservationHistory) -> Unit,
+) {
     var confirmClear by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
@@ -115,7 +142,7 @@ private fun ReservationHistoryScreen(state: HistoryUiState, onBack: () -> Unit, 
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = padding.calculateTopPadding() + 12.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) { items(state.histories, key = { it.vehicleNumber }) { VehicleHistoryCard(it) } }
+            ) { items(state.histories, key = { it.vehicleNumber }) { VehicleHistoryCard(it, onVehicleSelected) } }
         }
     }
     if (confirmClear) {
@@ -130,8 +157,11 @@ private fun ReservationHistoryScreen(state: HistoryUiState, onBack: () -> Unit, 
 }
 
 @Composable
-private fun VehicleHistoryCard(history: VehicleReservationHistory) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+private fun VehicleHistoryCard(history: VehicleReservationHistory, onClick: (VehicleReservationHistory) -> Unit) {
+    Card(
+        modifier = Modifier.clickable { onClick(history) },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
         Column(Modifier.padding(20.dp)) {
             Text(history.vehicleNumber, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             if (history.visitorName.isNotBlank()) Text(history.visitorName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -92,6 +92,13 @@ class MainViewModel(private val vehiclePreferences: VehiclePreferences) : ViewMo
         }
     }.onFailure(::showError)
 
+    /** Fills the form from a locally recorded history card without saving it as the default vehicle. */
+    fun loadVehicleFromHistory(number: String, visitorName: String) = runCatching { VehicleNumber.of(number) }
+        .onSuccess { vehicle ->
+            mutableUiState.update { it.copy(vehicleNumber = vehicle.value, visitorName = visitorName) }
+        }
+        .onFailure(::showError)
+
     fun deleteCurrentVehicle() = runCatching { VehicleNumber.of(uiState.value.vehicleNumber) }.onSuccess { vehicle ->
         vehiclePreferences.removeVehicleNumber(vehicle)
         mutableUiState.update { it.copy(vehicleNumber = "", visitorName = "") }
