@@ -267,7 +267,7 @@ private fun DateRow(label: String, value: String, onClick: () -> Unit, modifier:
     horizontalArrangement = Arrangement.SpaceBetween,
 ) {
     Text(label, maxLines = 1)
-    Text(value, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable
@@ -283,7 +283,7 @@ private fun VehicleCard(state: MainUiState, onVisitorNameChange: (String) -> Uni
                     OutlinedTextField(value = state.visitorName, onValueChange = onVisitorNameChange, modifier = Modifier.fillMaxWidth(), label = { Text("방문자 이름") }, singleLine = true)
                     OutlinedTextField(value = state.vehicleNumber, onValueChange = onVehicleNumberChange, modifier = Modifier.fillMaxWidth(), label = { Text("차량번호") }, singleLine = true)
                 }
-                OutlinedButton(onClick = onSaveVehicle, modifier = Modifier.padding(start = 8.dp)) { Text("차량 저장") }
+                Button(onClick = onSaveVehicle, modifier = Modifier.padding(start = 8.dp)) { Text("차량 저장") }
             }
         }
     }
