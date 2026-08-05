@@ -269,9 +269,13 @@ private fun VehicleCard(state: MainUiState, onVisitorNameChange: (String) -> Uni
                 Text("방문 차량", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 TextButton(onClick = onOpenVehicles) { Text("저장 차량 ${state.savedVehicles.size}대") }
             }
-            OutlinedTextField(value = state.visitorName, onValueChange = onVisitorNameChange, modifier = Modifier.fillMaxWidth(), label = { Text("방문자 이름") }, singleLine = true)
-            OutlinedTextField(value = state.vehicleNumber, onValueChange = onVehicleNumberChange, modifier = Modifier.fillMaxWidth(), label = { Text("차량번호") }, singleLine = true)
-            OutlinedButton(onClick = onSaveVehicle, modifier = Modifier.align(Alignment.End)) { Text("차량 저장") }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(value = state.visitorName, onValueChange = onVisitorNameChange, modifier = Modifier.fillMaxWidth(), label = { Text("방문자 이름") }, singleLine = true)
+                    OutlinedTextField(value = state.vehicleNumber, onValueChange = onVehicleNumberChange, modifier = Modifier.fillMaxWidth(), label = { Text("차량번호") }, singleLine = true)
+                }
+                OutlinedButton(onClick = onSaveVehicle, modifier = Modifier.padding(start = 8.dp)) { Text("차량 저장") }
+            }
         }
     }
 }

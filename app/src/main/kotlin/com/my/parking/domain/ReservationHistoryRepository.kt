@@ -6,5 +6,7 @@ interface ReservationHistoryRepository {
 
     fun record(draft: ReservationDraft, status: ReservationHistoryStatus)
 
+    fun removeVehicleHistory(vehicleNumber: String)
+
     fun clear()
 }

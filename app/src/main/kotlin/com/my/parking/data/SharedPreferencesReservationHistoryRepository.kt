@@ -37,6 +37,10 @@ class SharedPreferencesReservationHistoryRepository(
         preferences.edit().remove(KEY_ENTRIES).apply()
     }
 
+    override fun removeVehicleHistory(vehicleNumber: String) {
+        writeEntries(entries().filterNot { it.vehicleNumber == vehicleNumber })
+    }
+
     private fun readEntries(): List<ReservationHistoryEntry> = runCatching {
         val array = JSONArray(preferences.getString(KEY_ENTRIES, "[]"))
         buildList {

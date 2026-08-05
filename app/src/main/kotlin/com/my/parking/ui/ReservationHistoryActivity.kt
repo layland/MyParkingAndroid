@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -53,7 +54,9 @@ import kotlinx.coroutines.flow.asStateFlow
 
 data class HistoryUiState(val histories: List<VehicleReservationHistory> = emptyList())
 
-class ReservationHistoryViewModel(private val repository: ReservationHistoryRepository) : ViewModel() {
+class ReservationHistoryViewModel(
+    private val repository: ReservationHistoryRepository,
+) : ViewModel() {
     private val mutableUiState = MutableStateFlow(HistoryUiState())
     val uiState: StateFlow<HistoryUiState> = mutableUiState.asStateFlow()
 
@@ -61,15 +64,22 @@ class ReservationHistoryViewModel(private val repository: ReservationHistoryRepo
 
     fun refresh() { mutableUiState.value = HistoryUiState(repository.entries().groupByVehicle()) }
     fun clear() { repository.clear(); refresh() }
+
+    fun removeVehicleHistory(history: VehicleReservationHistory) {
+        repository.removeVehicleHistory(history.vehicleNumber)
+        refresh()
+    }
 }
 
 /** Compose screen for local, server-verified reservation submission results. */
 class ReservationHistoryActivity : AppCompatActivity() {
     private val viewModel: ReservationHistoryViewModel by viewModels {
-        val repository = (application as MyParkingApplication).appContainer.reservationHistoryRepository
+        val container = (application as MyParkingApplication).appContainer
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T = ReservationHistoryViewModel(repository) as T
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = ReservationHistoryViewModel(
+                container.reservationHistoryRepository,
+            ) as T
         }
     }
 
@@ -82,6 +92,7 @@ class ReservationHistoryActivity : AppCompatActivity() {
                     state = state,
                     onBack = ::finish,
                     onClear = viewModel::clear,
+                    onDeleteVehicleHistory = viewModel::removeVehicleHistory,
                     onVehicleSelected = ::returnSelectedVehicle,
                 )
             }
@@ -115,9 +126,11 @@ private fun ReservationHistoryScreen(
     state: HistoryUiState,
     onBack: () -> Unit,
     onClear: () -> Unit,
+    onDeleteVehicleHistory: (VehicleReservationHistory) -> Unit,
     onVehicleSelected: (VehicleReservationHistory) -> Unit,
 ) {
     var confirmClear by remember { mutableStateOf(false) }
+    var historyToDelete by remember { mutableStateOf<VehicleReservationHistory?>(null) }
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -142,7 +155,11 @@ private fun ReservationHistoryScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = padding.calculateTopPadding() + 12.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) { items(state.histories, key = { it.vehicleNumber }) { VehicleHistoryCard(it, onVehicleSelected) } }
+            ) {
+                items(state.histories, key = { it.vehicleNumber + it.entries.first().attemptedAt }) {
+                    VehicleHistoryCard(it, onVehicleSelected, onLongClick = { historyToDelete = it })
+                }
+            }
         }
     }
     if (confirmClear) {
@@ -154,12 +171,33 @@ private fun ReservationHistoryScreen(
             confirmButton = { TextButton(onClick = { onClear(); confirmClear = false }) { Text("전체 삭제", color = MaterialTheme.colorScheme.error) } },
         )
     }
+    historyToDelete?.let { history ->
+        AlertDialog(
+            onDismissRequest = { historyToDelete = null },
+            title = { Text("차량 예약 이력 삭제") },
+            text = { Text("이 차량의 예약 이력을 모두 삭제할까요?") },
+            dismissButton = { TextButton(onClick = { historyToDelete = null }) { Text("취소") } },
+            confirmButton = {
+                TextButton(onClick = { onDeleteVehicleHistory(history); historyToDelete = null }) {
+                    Text("삭제", color = MaterialTheme.colorScheme.error)
+                }
+            },
+        )
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun VehicleHistoryCard(history: VehicleReservationHistory, onClick: (VehicleReservationHistory) -> Unit) {
+private fun VehicleHistoryCard(
+    history: VehicleReservationHistory,
+    onClick: (VehicleReservationHistory) -> Unit,
+    onLongClick: () -> Unit,
+) {
     Card(
-        modifier = Modifier.clickable { onClick(history) },
+        modifier = Modifier.combinedClickable(
+            onClick = { onClick(history) },
+            onLongClick = onLongClick,
+        ),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(Modifier.padding(20.dp)) {
