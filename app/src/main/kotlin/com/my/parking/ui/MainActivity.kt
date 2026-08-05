@@ -266,8 +266,8 @@ private fun DateRow(label: String, value: String, onClick: () -> Unit, modifier:
     modifier = modifier.clickable(onClick = onClick).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 16.dp),
     horizontalArrangement = Arrangement.SpaceBetween,
 ) {
-    Text(label, maxLines = 1)
-    Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(label, modifier = Modifier.alignByBaseline(), maxLines = 1)
+    Text(value, modifier = Modifier.alignByBaseline(), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable
