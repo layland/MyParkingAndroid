@@ -210,9 +210,6 @@ private fun MainScreen(
                     onSaveVehicle = onSaveVehicle,
                 )
             }
-            item {
-                Text("등록을 누른 뒤 공식 사이트에서 로그인하고 예약 내용을 확인한 후 등록합니다.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
         }
     }
     if (vehiclesVisible) {

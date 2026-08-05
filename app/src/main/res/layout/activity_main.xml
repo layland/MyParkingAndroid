@@ -363,13 +363,6 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:text="등록을 누른 뒤 공식 사이트에 로그인하면 예약 내용을 확인한 후 등록합니다."
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-                android:textColor="@color/on_surface_variant" />
         </LinearLayout>
     </ScrollView>
     </LinearLayout>
