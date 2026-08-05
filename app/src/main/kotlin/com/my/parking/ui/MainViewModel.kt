@@ -86,8 +86,6 @@ class MainViewModel(private val vehiclePreferences: VehiclePreferences) : ViewMo
             it.copy(
                 vehicleNumber = vehicle.value,
                 visitorName = vehiclePreferences.visitorNameFor(vehicle)?.value.orEmpty(),
-                startDate = ReservationDate.today(),
-                endDate = ReservationDate.today(),
             )
         }
     }.onFailure(::showError)

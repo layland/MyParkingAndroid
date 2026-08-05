@@ -21,7 +21,7 @@ class MainViewModelTest {
     }
 
     @Test
-    fun selectingSavedVehicleResetsPeriodAndLoadsVisitorName() {
+    fun selectingSavedVehicleKeepsPeriodAndLoadsVisitorName() {
         val preferences = FakeVehiclePreferences().apply {
             saveReservationDraft(
                 ReservationDraft(
@@ -36,12 +36,17 @@ class MainViewModelTest {
             )
         }
         val viewModel = MainViewModel(preferences)
+        val selectedStartDate = LocalDate.now().plusDays(2)
+        val selectedEndDate = selectedStartDate.plusDays(2)
+        viewModel.selectStartDate(selectedStartDate)
+        viewModel.selectEndDate(selectedEndDate)
 
         viewModel.selectVehicle("12가3456")
 
         assertEquals("12가3456", viewModel.uiState.value.vehicleNumber)
         assertEquals("홍길동", viewModel.uiState.value.visitorName)
-        assertEquals(viewModel.uiState.value.startDate, viewModel.uiState.value.endDate)
+        assertEquals(selectedStartDate, viewModel.uiState.value.startDate.value)
+        assertEquals(selectedEndDate, viewModel.uiState.value.endDate.value)
     }
 
     @Test

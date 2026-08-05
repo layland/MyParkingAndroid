@@ -51,4 +51,19 @@ class ReservationPostContractTest {
         assertEquals(start.value.toString(), parameters["bookStartDate"])
         assertEquals(start.value.plusDays(3).toString(), parameters["bookEndDate"])
     }
+
+    @Test
+    fun `keeps the name parameter empty when no visitor name was entered`() {
+        val draft = ReservationDraft(
+            visitorName = VisitorName.of("   "),
+            vehicleNumber = VehicleNumber.of("12가3456"),
+            durationOption = null,
+            reservationPeriod = ReservationPeriod.of(
+                ReservationDate.of(LocalDate.now().plusDays(1)),
+                ReservationDate.of(LocalDate.now().plusDays(1)),
+            ),
+        )
+
+        assertEquals("", ReservationPostContract.parameters(draft)["name"])
+    }
 }
