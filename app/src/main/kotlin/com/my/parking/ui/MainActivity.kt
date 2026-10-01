@@ -42,6 +42,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +52,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -278,12 +284,55 @@ private fun VehicleCard(state: MainUiState, onVisitorNameChange: (String) -> Uni
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(value = state.visitorName, onValueChange = onVisitorNameChange, modifier = Modifier.fillMaxWidth(), label = { Text("방문자 이름 (선택)") }, singleLine = true)
-                    OutlinedTextField(value = state.vehicleNumber, onValueChange = onVehicleNumberChange, modifier = Modifier.fillMaxWidth(), label = { Text("차량번호") }, singleLine = true)
+                    VehicleNumberField(
+                        number = state.vehicleNumber,
+                        onNumberChange = onVehicleNumberChange,
+                    )
                 }
                 Button(onClick = onSaveVehicle, modifier = Modifier.padding(start = 8.dp)) { Text("차량 저장") }
             }
         }
     }
+}
+
+/**
+ * Keeps cursor/selection state in the UI while exposing only text changes to the ViewModel.
+ * Selects the existing number once on focus entry, allowing later taps to position the cursor.
+ */
+@Composable
+private fun VehicleNumberField(number: String, onNumberChange: (String) -> Unit) {
+    var fieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(number))
+    }
+    var isFocused by remember { mutableStateOf(false) }
+
+    LaunchedEffect(number) {
+        if (fieldValue.text != number) {
+            fieldValue = TextFieldValue(
+                text = number,
+                selection = if (isFocused) TextRange(0, number.length) else TextRange(number.length),
+            )
+        }
+    }
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            // Apply after the pointer event that acquired focus has positioned the cursor.
+            withFrameNanos { }
+            fieldValue = fieldValue.copy(selection = TextRange(0, fieldValue.text.length))
+        }
+    }
+
+    OutlinedTextField(
+        value = fieldValue,
+        onValueChange = { updated ->
+            val textChanged = updated.text != fieldValue.text
+            fieldValue = updated
+            if (textChanged) onNumberChange(updated.text)
+        },
+        modifier = Modifier.fillMaxWidth().onFocusChanged { isFocused = it.isFocused },
+        label = { Text("차량번호") },
+        singleLine = true,
+    )
 }
 
 @Composable
