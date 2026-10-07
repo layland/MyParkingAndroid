@@ -55,6 +55,12 @@ function historyEntries() {
   }
   return entries.sort((a,b)=>Date.parse(b.attemptedAt)-Date.parse(a.attemptedAt));
 }
+function savedVehicleName(vehicle) {
+  if(!vehicle||vehicle.includes('*'))return '';
+  const normalize=value=>String(value||'').replace(/\s+/g,'').toUpperCase();
+  const saved=state?.savedVehicles?.find(v=>normalize(v.number)===normalize(vehicle));
+  return saved?.name?.trim()||'';
+}
 function renderHistory() {
   const list=$('history-list');list.replaceChildren();
   const entries=historyEntries();
@@ -63,7 +69,8 @@ function renderHistory() {
   for(const e of entries){
     const card=node('article',undefined,'history-card'),heading=node('div',undefined,'history-heading');
     const result=labels[e.status]||'결과 미확인';
-    heading.append(node('h3',e.vehicle),node('span',result+(e.total?` · ${e.succeeded}/${e.total}건`:''),'status '+e.status));
+    const name=savedVehicleName(e.vehicle);
+    heading.append(node('h3',e.vehicle+(name?` · ${name}`:'')),node('span',result+(e.total?` · ${e.succeeded}/${e.total}건`:''),'status '+e.status));
     card.append(heading,node('p',e.startDate===e.endDate?dateText(e.startDate):`${dateText(e.startDate)} ~ ${dateText(e.endDate)}`,'history-dates'));
     const meta=node('div',undefined,'meta');
     meta.append(node('span',e.owner+(e.syncLabel?` · ${e.syncLabel}`:'')),node('span',timestamp(e.attemptedAt)));
