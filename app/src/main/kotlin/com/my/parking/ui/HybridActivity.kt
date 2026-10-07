@@ -25,6 +25,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -96,7 +97,7 @@ class HybridActivity : AppCompatActivity() {
             mixedContentMode=android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
         }
         if(WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-            WebViewCompat.setAlgorithmicDarkeningAllowed(webView.settings,false)
+            WebSettingsCompat.setAlgorithmicDarkeningAllowed(webView.settings,false)
         }
         val assets=WebViewAssetLoader.Builder().addPathHandler("/assets/",WebViewAssetLoader.AssetsPathHandler(this)).build()
         webView.webViewClient=object : WebViewClient() {
