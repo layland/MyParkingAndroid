@@ -15,7 +15,7 @@ function node(tag,text,className) { const n=document.createElement(tag);if(text!
 function localDate(value) { return new Date(value+'T12:00:00'); }
 function dateText(value) {return value.replaceAll('-','.');}
 function timestamp(value) {const d=new Date(value);return Number.isNaN(d.getTime())?'':d.toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}
-function switchPage(next) {page=next;document.querySelectorAll('.page').forEach(n=>n.hidden=n.id!==next);document.querySelectorAll('nav button').forEach(n=>n.classList.toggle('active',n.dataset.page===next));window.scrollTo(0,0);if(next!=='reserve')sync();}
+function switchPage(next) {page=next;document.body.dataset.page=next;document.querySelectorAll('.page').forEach(n=>n.hidden=n.id!==next);document.querySelectorAll('nav button').forEach(n=>n.classList.toggle('active',n.dataset.page===next));window.scrollTo(0,0);if(next!=='reserve')sync();}
 async function draft(){await request('updateDraft',{vehicleNumber:$('number').value,visitorName:$('name').value});}
 function render(s) {
   if(s.protocol!==1){notice('화면과 앱 버전이 맞지 않습니다. APK를 업데이트해 주세요.','ERROR');return;}
@@ -23,7 +23,7 @@ function render(s) {
   for(const [id,key] of [['number','vehicleNumber'],['name','visitorName'],['start','startDate'],['end','endDate']])if(document.activeElement!==$(id))$(id).value=s[key];
   $('start').min=s.today;$('end').min=s.startDate;const max=localDate(s.startDate);max.setDate(max.getDate()+89);$('end').max=[max.getFullYear(),String(max.getMonth()+1).padStart(2,'0'),String(max.getDate()).padStart(2,'0')].join('-');
   const days=Math.round((localDate(s.endDate)-localDate(s.startDate))/86400000)+1;
-  $('period').textContent=`${dateText(s.startDate)} ~ ${dateText(s.endDate)} · ${days}일`;
+  $('period').textContent=`${days}일`;
   document.querySelectorAll('[data-offset]').forEach(b=>b.classList.toggle('selected',s.startDate===s.today&&days===Number(b.dataset.offset)+1));
   $('remaining').textContent=s.remainingTime;$('refresh-time').disabled=s.refreshing;
   $('open-vehicles').textContent=`저장 차량 ${s.savedVehicles.length}대`;
@@ -110,7 +110,20 @@ bind('import-history',async()=>renderFamily(await request('familyImport')));
 bind('leave',async()=>{renderFamily(await request('familyLeave'));$('invite-result').hidden=true;$('generated-code').value='';});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){request('state').then(render).catch(()=>{});sync();}});
 setInterval(()=>{if(page==='history'&&!document.hidden)sync();},30000);
-if(window.visualViewport){const baseline=window.visualViewport.height;window.visualViewport.addEventListener('resize',()=>document.body.classList.toggle('keyboard',window.visualViewport.height<baseline-120));}
+let viewportBaseline=window.visualViewport?.height||window.innerHeight;
+function updateKeyboardLayout(){
+  const focused=document.activeElement?.matches('input:not([readonly])');
+  const height=window.visualViewport?.height||window.innerHeight;
+  if(!focused)viewportBaseline=height;
+  document.body.classList.toggle('keyboard',!!focused&&viewportBaseline-height>120);
+}
+document.addEventListener('focusin',event=>{
+  if(event.target.matches('#start,#end'))document.body.dataset.editing='schedule';
+  else if(event.target.matches('#name,#number'))document.body.dataset.editing='vehicle';
+  updateKeyboardLayout();
+});
+window.visualViewport?.addEventListener('resize',updateKeyboardLayout);
+window.addEventListener('resize',updateKeyboardLayout);
 // Keep the final action reachable above navigation at every folded/unfolded width.
 const navigation=document.querySelector('nav');
 function measureNavigation(){document.documentElement.style.setProperty('--bottom-nav-height',`${navigation.getBoundingClientRect().height}px`);}

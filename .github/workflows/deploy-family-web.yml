@@ -23,6 +23,11 @@ jobs:
       - run: node test/worker.test.mjs
       - run: node test/provision.test.mjs
       - run: node test/account.test.mjs
+      - name: Check mobile and Fold layouts in Chromium
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+          python test/ui_smoke.py
   deploy:
     needs: validate
     runs-on: ubuntu-latest
