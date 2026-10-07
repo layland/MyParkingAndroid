@@ -43,11 +43,11 @@ APK 빌드는 `cloudflare/public/`의 동일한 화면을 자동으로 포함한
 GitHub 저장소에 다음을 설정한다.
 
 - 변수 CLOUDFLARE_ACCOUNT_ID: 계정 ID
-- 변수 CLOUDFLARE_DATABASE_ID: 만든 D1 ID
+- 변수 CLOUDFLARE_DATABASE_ID: 기존 D1을 지정할 때만 필요. 생략하면 이름으로 재사용하거나 자동 생성
 - 비밀 CLOUDFLARE_API_TOKEN: 해당 계정의 Workers Scripts Edit 및 D1 Edit 권한 토큰
 
 Deploy family web workflow를 수동 실행하거나, 합친 운영 브랜치의 cloudflare 파일을 수정해 push한다.
-워크플로는 D1 마이그레이션 후 웹을 배포한다. 배포된 URL은 바뀌지 않으므로 두 앱을 다시 설정할 필요가 없다.
+워크플로는 D1 생성/재사용 → 마이그레이션 → 웹 배포 → 서버·D1·접근 보호 확인을 수행하고 실행 요약에 앱에 넣을 HTTPS 주소를 표시한다. 배포된 URL은 바뀌지 않으므로 두 앱을 다시 설정할 필요가 없다.
 저장소에는 Cloudflare 토큰을 커밋하지 않는다.
 
 ## 운영 및 복구
@@ -69,3 +69,11 @@ Android는 GitHub Actions에서 단위 테스트와 서명 APK 빌드를 수행�
 
 실기기에서는 두 기기 생성/초대, 오프라인 예약 후 공유 재전송, 공유 내역 일부 성공, 기기 해제 후 접근 차단, 저장 차량 선택·번호 전체 선택, 웹 재배포 후 새 화면 로딩을 확인한다.
 실제 주차 예약 검증은 사용자가 명시적으로 등록할 때 수행한다.
+
+## 최소 설정으로 자동 배포
+
+GitHub Actions에 CLOUDFLARE_ACCOUNT_ID 변수와 CLOUDFLARE_API_TOKEN 비밀만 등록하면 됩니다. 계정 ID는 Cloudflare 계정 화면에서 확인하고, 토큰은 해당 계정의 Workers Scripts Edit와 D1 Edit 권한으로 만듭니다. 토큰을 채팅이나 소스에 붙여넣지 마세요.
+
+등록 후 알려주면 feature/family-web-ui 브랜치의 push로 배포를 실행합니다. 수동 실행 버튼은 워크플로 파일이 기본 브랜치에 합쳐진 뒤 사용할 수 있습니다. D1 ID를 미리 만들거나 등록할 필요가 없습니다. 이름이 같은 D1이 있으면 재사용합니다. 성공하면 실행 요약에 웹 주소가 표시됩니다. Cloudflare 계정에 workers.dev 주소가 아직 없으면 Workers 화면에서 한 번 설정해야 할 수 있습니다.
+
+토큰 생성: https://dash.cloudflare.com/profile/api-tokens → Create Token → Create Custom Token → Account / Workers Scripts / Edit 및 Account / D1 / Edit → Account Resources는 사용할 계정만 포함 → Create Token. 발급한 값은 GitHub 저장소 Actions Secret CLOUDFLARE_API_TOKEN에 저장합니다. 계정 ID는 계정 대시보드에서 확인해 Actions Variable CLOUDFLARE_ACCOUNT_ID로 저장합니다.

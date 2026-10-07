@@ -11,6 +11,11 @@ function database(){
 }
 function fixture(){const DB=database();return {DB,async call(path,method='GET',data,token,headers={}){const request=new Request('https://parking.example'+path,{method,headers:{'CF-Connecting-IP':'192.0.2.1',...(token?{Authorization:'Bearer '+token}:{}),...headers},...(data?{body:JSON.stringify(data)}:{})});const response=await worker.fetch(request,{DB,ASSETS:{fetch:async()=>new Response('web')}});return {status:response.status,data:await response.json()};}};}
 const entry=(id='a'.repeat(64))=>({id,vehicle:'TEST****',startDate:'2026-10-07',endDate:'2026-10-08',attemptedAt:'2026-10-07T00:00:00Z',status:'SUCCESS',succeeded:1,total:1});
+test('public health reports only readiness and detects a missing migration',async()=>{
+  const f=fixture();const ready=await f.call('/api/health');assert.equal(ready.status,200);assert.equal(ready.data.database,'ready');
+  assert.deepEqual(Object.keys(ready.data).sort(),['database','protocol','service']);
+  f.DB.sql.exec('DROP TABLE families');assert.equal((await f.call('/api/health')).status,503);
+});
 test('two devices share only their family; enrollment tokens are stored as hashes',async()=>{
   const f=fixture();const owner=await f.call('/api/families','POST',{label:'A'});assert.equal(owner.status,201);
   const stranger=await f.call('/api/families','POST',{label:'B'});

@@ -10,8 +10,21 @@ concurrency:
   group: family-web-deploy
   cancel-in-progress: false
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node test/worker.test.mjs
+      - run: node test/provision.test.mjs
   deploy:
-    if: vars.CLOUDFLARE_ACCOUNT_ID != '' && vars.CLOUDFLARE_DATABASE_ID != ''
+    needs: validate
+    if: vars.CLOUDFLARE_ACCOUNT_ID != ''
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -25,9 +38,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node test/worker.test.mjs
       - run: npm install --no-package-lock
-      - name: Set database binding
-        run: node -e "const fs=require('fs'); const p='wrangler.jsonc'; fs.writeFileSync(p,fs.readFileSync(p,'utf8').replace('REPLACE_WITH_D1_DATABASE_ID',process.env.DATABASE_ID));"
+      - name: Create or reuse D1 and set binding
+        run: node scripts/ensure-database.mjs
       - run: npm run db:migrate
       - run: npm run deploy
+      - name: Verify deployed server and show app URL
+        run: node scripts/verify-deployment.mjs

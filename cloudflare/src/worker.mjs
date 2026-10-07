@@ -49,6 +49,10 @@ export default {
     try {
       requireThat(!request.headers.has('Origin')||request.headers.get('Origin')===url.origin,'다른 사이트에서는 접근할 수 없습니다.',403);
       const db=env.DB, path=url.pathname, method=request.method;
+      if(method==='GET'&&path==='/api/health') {
+        const schema=(await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('families','devices','invites','reservations')").all()).results;
+        return json({service:'myparking-family',protocol:1,database:schema.length===4?'ready':'not_ready'},schema.length===4?200:503);
+      }
       if(method==='POST'&&(path==='/api/families'||path==='/api/join')) {
         await rateLimit(request,db); const data=await body(request);
         requireThat(typeof data.label==='string'&&data.label.trim().length>=1&&data.label.length<=30,'등록자 이름은 1~30자로 입력해 주세요.');

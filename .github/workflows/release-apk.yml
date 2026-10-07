@@ -39,7 +39,9 @@ jobs:
           node-version: '24'
 
       - name: Test sharing API
-        run: node cloudflare/test/worker.test.mjs
+        run: |
+          node cloudflare/test/worker.test.mjs
+          node cloudflare/test/provision.test.mjs
 
       - name: Test web UI in Chromium
         run: |
