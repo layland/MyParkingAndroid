@@ -155,15 +155,17 @@ class ReservationWebActivity : AppCompatActivity() {
             status = result.historyStatus(),
         )
 
+        var sharingWarning: String? = null
         runCatching {
             (application as MyParkingApplication).appContainer.reservationHistoryRepository
                 .enqueueLatest(sharedStatus,sharedSucceeded,sharedTotal)
-        }.onFailure { showMessage("기기 내역은 저장했지만 공유 대기열 저장에 실패했습니다. 가족 설정에서 기존 내역 공유를 사용해 주세요.") }
+        }.onFailure { sharingWarning = "기기 내역은 저장했지만 공유 대기열 저장에 실패했습니다. 가족 설정에서 기존 내역 공유를 사용해 주세요." }
 
         when (result) {
             is ReservationSubmissionResult.Success -> showMessage(result.message.ifBlank { getString(R.string.reservation_success_message) })
             is ReservationSubmissionResult.Failure -> showMessage(result.message)
         }
+        sharingWarning?.let { warning -> showMessage(findViewById<android.widget.TextView>(R.id.automation_notice).text.toString() + "\n" + warning) }
     }
 
     private fun batchResultMessage(response: JSONObject): ReservationSubmissionResult {
