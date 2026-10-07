@@ -104,3 +104,8 @@ bind('leave',async()=>{renderFamily(await request('familyLeave'));$('invite-resu
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){request('state').then(render).catch(()=>{});sync();}});
 setInterval(()=>{if(page==='history'&&!document.hidden)sync();},30000);
 if(window.visualViewport){const baseline=window.visualViewport.height;window.visualViewport.addEventListener('resize',()=>document.body.classList.toggle('keyboard',window.visualViewport.height<baseline-120));}
+// Keep the final action reachable above navigation at every folded/unfolded width.
+const navigation=document.querySelector('nav');
+function measureNavigation(){document.documentElement.style.setProperty('--bottom-nav-height',`${navigation.getBoundingClientRect().height}px`);}
+if(window.ResizeObserver)new ResizeObserver(measureNavigation).observe(navigation);
+window.addEventListener('resize',measureNavigation);measureNavigation();

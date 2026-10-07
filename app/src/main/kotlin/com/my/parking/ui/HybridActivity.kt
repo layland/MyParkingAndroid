@@ -2,6 +2,7 @@ package com.my.parking.ui
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
 import android.widget.FrameLayout
 import android.net.Uri
@@ -18,6 +19,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.doOnAttach
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.Lifecycle
@@ -45,6 +47,7 @@ class HybridActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
+        delegate.localNightMode=AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
         super.onCreate(savedInstanceState)
         main=ViewModelProvider(this,object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST") override fun <T: ViewModel> create(modelClass: Class<T>): T = MainViewModel(container.vehiclePreferences) as T
@@ -54,26 +57,34 @@ class HybridActivity : AppCompatActivity() {
         })[FamilySharingViewModel::class.java]
         timeLoader=RemainingTimeLoader(this,main::renderRemainingTime)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        val darkMode=(resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)==Configuration.UI_MODE_NIGHT_YES
         webView=WebView(this)
         // WebView padding does not reliably move the HTML viewport away from system bars.
         // Inset its parent so the whole viewport, including fixed web navigation, is resized.
         val content=FrameLayout(this).apply {
-            setBackgroundColor(Color.rgb(21,59,53))
+            setBackgroundColor(if(darkMode) Color.rgb(26,36,53) else Color.WHITE)
             addView(webView,FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,FrameLayout.LayoutParams.MATCH_PARENT
             ))
         }
         ViewCompat.setOnApplyWindowInsetsListener(content) { view, insets ->
-            val safeArea=insets.getInsets(
+            // Fold taskbars can cover content even when reported as transient/hidden.
+            // Reserve their stable bounds, then add the keyboard only while it is visible.
+            val systemArea=insets.getInsetsIgnoringVisibility(
                 WindowInsetsCompat.Type.systemBars() or
-                    WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime()
+                    WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.tappableElement()
             )
-            view.setPadding(safeArea.left,safeArea.top,safeArea.right,safeArea.bottom)
+            val keyboardArea=insets.getInsets(WindowInsetsCompat.Type.ime())
+            view.setPadding(
+                maxOf(systemArea.left,keyboardArea.left),maxOf(systemArea.top,keyboardArea.top),
+                maxOf(systemArea.right,keyboardArea.right),maxOf(systemArea.bottom,keyboardArea.bottom)
+            )
             WindowInsetsCompat.CONSUMED
         }
         content.doOnAttach { ViewCompat.requestApplyInsets(it) }
         setContentView(content)
-        WindowCompat.getInsetsController(window,content).isAppearanceLightStatusBars=false
+        WindowCompat.getInsetsController(window,content).isAppearanceLightStatusBars=!darkMode
+        WindowCompat.getInsetsController(window,content).isAppearanceLightNavigationBars=!darkMode
         if(!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             startActivity(Intent(this,MainActivity::class.java)); finish(); return
         }
@@ -83,6 +94,9 @@ class HybridActivity : AppCompatActivity() {
             allowFileAccess=false
             allowContentAccess=false
             mixedContentMode=android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        }
+        if(WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+            WebViewCompat.setAlgorithmicDarkeningAllowed(webView.settings,false)
         }
         val assets=WebViewAssetLoader.Builder().addPathHandler("/assets/",WebViewAssetLoader.AssetsPathHandler(this)).build()
         webView.webViewClient=object : WebViewClient() {
