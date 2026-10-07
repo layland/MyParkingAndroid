@@ -60,13 +60,13 @@ with sync_playwright() as playwright:
         }''')
         assert page.locator('.history-card').count() == 1
         assert '나' in page.locator('#history-list').inner_text()
-        assert '이 기기에 저장' in page.locator('#history-list').inner_text()
+        assert '이 기기에 저장' not in page.locator('#history-list').inner_text()
         page.evaluate('''() => renderFamily({connected:true,deviceId:'me',pending:0,lastSync:'2026-10-07T10:00:00Z',hasMore:true,
           entries:[{...window.fixture.localHistory[0],deviceId:'me',author:'A',status:'PARTIAL',succeeded:1,total:2},
             {...window.fixture.localHistory[0],deviceId:'spouse',author:'B'}]})''')
         assert page.locator('.history-card').count() == 2
-        assert '나 · A' in page.locator('#history-list').inner_text()
-        assert '배우자 · B' in page.locator('#history-list').inner_text()
+        assert '나' in page.locator('#history-list').inner_text()
+        assert '배우자' in page.locator('#history-list').inner_text()
         assert '일부 등록 후 중단 · 1/2건' in page.locator('#history-list').inner_text()
         assert '이 기기에 저장' not in page.locator('#history-list').inner_text()
         assert page.locator('#more').is_visible()
@@ -80,7 +80,7 @@ with sync_playwright() as playwright:
         assert page.locator('.history-card').count() == 4
         assert '동기화 대기' in page.locator('.history-card').nth(0).inner_text()
         assert '결과 미확인' in page.locator('.history-card').nth(1).inner_text()
-        assert '배우자 · B' in page.locator('#history-list').inner_text()
+        assert '배우자' in page.locator('#history-list').inner_text()
         assert '오프라인' in page.locator('#sync-state').inner_text()
         # Once uploaded, replace pending cards with exactly one authoritative record.
         page.evaluate('''() => renderFamily({...family,error:null,pending:0,pendingEntries:[],
@@ -90,6 +90,12 @@ with sync_playwright() as playwright:
         # Deployed web UI also deduplicates records from APKs predating local IDs.
         page.evaluate('''() => { delete window.fixture.localHistory[0].id; window.ParkingApp.render(window.fixture); }''')
         assert page.locator('.history-card').count() == 4
+        page.evaluate('''() => { window.fixture.localHistory[0].id='one'; window.fixture.localHistory[0].vehicle='TEST1234'; window.ParkingApp.render(window.fixture); }''')
+        assert page.locator('.history-card h3').all_text_contents().count('TEST1234') == 1
+        assert page.locator('.history-card').count() == 4
+        assert '이 기기에 저장' not in page.locator('#history-list').inner_text()
+        assert page.locator('.history-card').last.evaluate('(e)=>e.getBoundingClientRect().height') < 130
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
         page.locator('nav [data-page="settings"]').click()
         page.locator('#connect-card').wait_for(state='visible')
         assert page.locator('#connect-card').is_visible()

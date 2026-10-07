@@ -9,7 +9,7 @@ function json(value,status=200) { return new Response(JSON.stringify(value),{sta
 export function validateEntry(entry) {
   const date = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value;
   requireThat(typeof entry.id==='string' && /^[a-f0-9]{64}$/.test(entry.id),'기록 ID가 올바르지 않습니다.');
-  requireThat(typeof entry.vehicle==='string' && entry.vehicle.includes('*') && entry.vehicle.length<=16,'마스킹된 차량번호가 필요합니다.');
+  requireThat(typeof entry.vehicle==='string' && entry.vehicle.length>=1 && entry.vehicle.length<=16 && /^[0-9A-Za-z가-힣*]+$/.test(entry.vehicle),'차량번호가 올바르지 않습니다.');
   requireThat(date(entry.startDate) && date(entry.endDate) && entry.endDate>=entry.startDate && (Date.parse(entry.endDate)-Date.parse(entry.startDate))/86400000<90,'예약 기간이 올바르지 않습니다.');
   requireThat(typeof entry.attemptedAt==='string' && entry.attemptedAt.length<=40 && !Number.isNaN(Date.parse(entry.attemptedAt)),'등록 시간이 올바르지 않습니다.');
   requireThat(['SUCCESS','FAILURE','PARTIAL','UNKNOWN'].includes(entry.status),'결과가 올바르지 않습니다.');

@@ -22,8 +22,9 @@ test('two devices share only their family; enrollment tokens are stored as hashe
   const invite=await f.call('/api/invites','POST',{},owner.data.token);
   const spouse=await f.call('/api/join','POST',{label:'C',code:invite.data.code});assert.equal(spouse.status,201);
   assert.equal(spouse.data.familyId,owner.data.familyId);
-  assert.equal((await f.call('/api/reservations','PUT',entry(),owner.data.token)).status,200);
+  assert.equal((await f.call('/api/reservations','PUT',{...entry(),vehicle:'TEST1234'},owner.data.token)).status,200);
   const shared=await f.call('/api/reservations','GET',null,spouse.data.token);assert.equal(shared.data.entries.length,1);assert.equal(shared.data.entries[0].author,'A');
+  assert.equal(shared.data.entries[0].vehicle,'TEST1234');
   assert.equal((await f.call('/api/reservations','GET',null,stranger.data.token)).data.entries.length,0);
   assert.equal(f.DB.sql.prepare('SELECT COUNT(*) n FROM devices WHERE token_hash=?').get(owner.data.token).n,0);
 });
@@ -53,8 +54,10 @@ test('revoked devices cannot read or write; last departure erases the family',as
   assert.equal((await f.call('/api/reservations','PUT',entry(),spouse.token)).status,401);
   await f.call('/api/leave','POST',{},o.token);assert.equal(f.DB.sql.prepare('SELECT COUNT(*) n FROM families').get().n,0);
 });
-test('validation rejects raw numbers, invalid periods, unknown status and inconsistent counts',()=>{
-  for(const change of [{vehicle:'UNMASKED'},{endDate:'2026-02-30'},{endDate:'2026-10-01'},{status:'ASSUMED'},{succeeded:0},{total:24},{id:'bad'}])assert.throws(()=>validateEntry({...entry(),...change}));
+test('validation accepts full and legacy masked plates and rejects invalid entries',()=>{
+  for(const change of [{vehicle:''},{vehicle:'x'.repeat(17)},{vehicle:'<script>'},{endDate:'2026-02-30'},{endDate:'2026-10-01'},{status:'ASSUMED'},{succeeded:0},{total:24},{id:'bad'}])assert.throws(()=>validateEntry({...entry(),...change}));
+  assert.equal(validateEntry({...entry(),vehicle:'12가3456'}).vehicle,'12가3456');
+  assert.equal(validateEntry(entry()).vehicle,'TEST****');
   assert.equal(validateEntry({...entry(),status:'UNKNOWN',succeeded:0}).status,'UNKNOWN');
 });
 test('pagination does not lose entries with identical timestamps',async()=>{

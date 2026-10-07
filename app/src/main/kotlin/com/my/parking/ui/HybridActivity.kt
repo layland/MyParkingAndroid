@@ -146,8 +146,8 @@ class HybridActivity : AppCompatActivity() {
             .put("startDate",s.startDate.value.toString()).put("endDate",s.endDate.value.toString()).put("today",LocalDate.now().toString())
             .put("remainingTime",s.remainingTime).put("refreshing",s.isRefreshingRemainingTime)
             .put("origin",runCatching { container.familySharingRepository.origin() }.getOrDefault(""))
-            .put("savedVehicles",JSONArray().apply { s.savedVehicles.forEach { put(JSONObject().put("number",it.number).put("label",it.number.dropLast(4)+"****").put("name",it.visitorName)) } })
-            .put("localHistory",JSONArray().apply { container.reservationHistoryRepository.entries().forEach { e -> put(JSONObject().put("id",container.familySharingRepository.entryId(e)).put("vehicle",e.vehicleNumber.dropLast(4)+"****").put("startDate",e.startDate.toString()).put("endDate",e.endDate.toString()).put("attemptedAt",e.attemptedAt.toString()).put("status",e.status.name)) } })
+            .put("savedVehicles",JSONArray().apply { s.savedVehicles.forEach { put(JSONObject().put("number",it.number).put("label",it.number).put("name",it.visitorName)) } })
+            .put("localHistory",JSONArray().apply { container.reservationHistoryRepository.entries().forEach { e -> put(JSONObject().put("id",container.familySharingRepository.entryId(e)).put("vehicle",e.vehicleNumber).put("startDate",e.startDate.toString()).put("endDate",e.endDate.toString()).put("attemptedAt",e.attemptedAt.toString()).put("status",e.status.name)) } })
     }
     private fun ok()=JSONObject().put("ok",true)
     private fun render() { if(::webView.isInitialized) emit("render",state()) }

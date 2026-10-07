@@ -37,7 +37,7 @@ class FamilySharingRepository(private val store: SecureFamilyStore, private val 
             if (!state.has("session")) return@update
             val id = entryId(entry)
             val count = total ?: (((java.time.temporal.ChronoUnit.DAYS.between(entry.startDate, entry.endDate)+1)+3)/4).toInt()
-            val item = JSONObject().put("id",id).put("vehicle",entry.vehicleNumber.dropLast(4)+"****")
+            val item = JSONObject().put("id",id).put("vehicle",entry.vehicleNumber)
                 .put("startDate",entry.startDate.toString()).put("endDate",entry.endDate.toString()).put("attemptedAt",entry.attemptedAt.toString())
                 .put("status",status).put("succeeded",succeeded ?: if(status == "SUCCESS") count else 0).put("total",count)
             val queue = state.optJSONArray("pending") ?: JSONArray()

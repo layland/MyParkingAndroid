@@ -35,15 +35,19 @@ function render(s) {
 }
 function historyEntries() {
   const remote=family?.entries||[], ownId=family?.deviceId;
-  const sameAttempt=(a,b)=>a.vehicle===b.vehicle&&a.startDate===b.startDate&&a.endDate===b.endDate&&Date.parse(a.attemptedAt)===Date.parse(b.attemptedAt);
+  const sameVehicle=(a,b)=>a===b||(a.includes('*')&&a===b.slice(0,-4)+'****')||(b.includes('*')&&b===a.slice(0,-4)+'****');
+  const sameAttempt=(a,b)=>sameVehicle(a.vehicle,b.vehicle)&&a.startDate===b.startDate&&a.endDate===b.endDate&&Date.parse(a.attemptedAt)===Date.parse(b.attemptedAt);
   const isOwn=e=>e.deviceId===ownId;
   const matches=(a,b)=>a.id&&b.id?a.id===b.id:sameAttempt(a,b);
   const queued=family?.pendingEntries||[];
-  const entries=remote.map(e=>({...e,owner:isOwn(e)?'나':'배우자'}));
+  const entries=remote.map(e=>{
+    const local=isOwn(e)?state?.localHistory?.find(l=>matches(e,l)):null;
+    return {...e,vehicle:local&&!local.vehicle.includes('*')?local.vehicle:e.vehicle,owner:isOwn(e)?'나':'배우자'};
+  });
   for(const local of state?.localHistory||[]) {
     if(remote.some(e=>isOwn(e)&&matches(e,local)))continue;
     const waiting=queued.find(e=>matches(e,local));
-    entries.push({...local,...waiting,owner:'나',syncLabel:waiting?'동기화 대기':'이 기기에 저장'});
+    entries.push({...local,...waiting,vehicle:local.vehicle,owner:'나',syncLabel:waiting?'동기화 대기':''});
   }
   // The encrypted upload queue may outlive the bounded local history.
   for(const waiting of queued) {
@@ -56,13 +60,22 @@ function renderHistory() {
   const entries=historyEntries();
   if(!entries.length)list.append(node('p','아직 예약 내역이 없습니다.','empty'));
   const labels={SUCCESS:'등록 성공',FAILURE:'등록 실패',PARTIAL:'일부 등록 후 중단',UNKNOWN:'결과 미확인'};
-  for(const e of entries){const card=node('article',undefined,'history-card');card.append(node('h3',e.vehicle));card.append(node('p',`${dateText(e.startDate)} ~ ${dateText(e.endDate)}`));const result=labels[e.status]||'결과 미확인';card.append(node('span',result+(e.total?` · ${e.succeeded}/${e.total}건`:''),'status '+e.status));const meta=node('div',undefined,'meta');meta.append(node('span',e.owner+(e.author?` · ${e.author}`:'')),node('span',timestamp(e.attemptedAt)));card.append(meta);if(e.syncLabel)card.append(node('p',e.syncLabel,'hint'));list.append(card);}
-  $('sync-state').textContent=family?.error?`공유 확인 실패: ${family.error} · 저장된 내역을 표시합니다.`:family?.connected?`동기화 대기 ${family.pending}건 · 마지막 갱신 ${timestamp(family.lastSync)}`:'가족 설정에서 연결하면 배우자의 내역도 함께 볼 수 있습니다.';
+  for(const e of entries){
+    const card=node('article',undefined,'history-card'),heading=node('div',undefined,'history-heading');
+    const result=labels[e.status]||'결과 미확인';
+    heading.append(node('h3',e.vehicle),node('span',result+(e.total?` · ${e.succeeded}/${e.total}건`:''),'status '+e.status));
+    card.append(heading,node('p',e.startDate===e.endDate?dateText(e.startDate):`${dateText(e.startDate)} ~ ${dateText(e.endDate)}`,'history-dates'));
+    const meta=node('div',undefined,'meta');
+    meta.append(node('span',e.owner+(e.syncLabel?` · ${e.syncLabel}`:'')),node('span',timestamp(e.attemptedAt)));
+    card.append(meta);list.append(card);
+  }
+  const syncNote=family?.error?`공유 확인 실패: ${family.error}`:family?.pending?`동기화 대기 ${family.pending}건`:'';
+  $('sync-state').textContent=syncNote;$('sync-state').hidden=!syncNote;
   $('more').hidden=!family?.hasMore;
 }
 function renderFamily(f) {
   family=f;$('connect-card').hidden=f.connected;$('connected-card').hidden=!f.connected;
-  if(f.connected){$('family-label').textContent=`${f.label} · 가족에 연결됨`;const list=$('devices');list.replaceChildren();for(const d of f.devices||[]){const row=node('div',undefined,'device-row');row.append(node('span',d.label+(d.id===f.deviceId?' (이 기기)':'')));if(d.id!==f.deviceId){const b=node('button','연결 해제','subtle');b.addEventListener('click',()=>run(b,async()=>renderFamily(await request('familyRevoke',{deviceId:d.id}))));row.append(b);}list.append(row);}$('invite').disabled=(f.devices||[]).length>=2;}
+  if(f.connected){$('family-label').textContent=f.label;const list=$('devices');list.replaceChildren();for(const d of f.devices||[]){const row=node('div',undefined,'device-row');row.append(node('span',d.label+(d.id===f.deviceId?' (이 기기)':'')));if(d.id!==f.deviceId){const b=node('button','연결 해제','subtle');b.addEventListener('click',()=>run(b,async()=>renderFamily(await request('familyRevoke',{deviceId:d.id}))));row.append(b);}list.append(row);}$('invite').disabled=(f.devices||[]).length>=2;}
   renderHistory();
 }
 async function sync(){if(syncing||!window.NativeParking)return;syncing=true;$('sync').disabled=true;try{renderFamily(await request('familySync'));}catch(e){notice(e.message,'ERROR');}finally{syncing=false;$('sync').disabled=false;}}
@@ -82,8 +95,8 @@ bind('register',async()=>{await draft();await request('register');});bind('save-
 bind('site',()=>request('site'));bind('refresh-time',()=>request('refreshTime'));bind('native-screen',()=>request('nativeScreen'));
 bind('open-vehicles',()=>{$('vehicles').showModal();});bind('close-vehicles',()=>{$('vehicles').close();});bind('delete-vehicle',async()=>{await request('deleteVehicle');$('vehicles').close();});
 bind('sync',sync);bind('more',async()=>renderFamily(await request('familyMore')));
-bind('create-family',async()=>{renderFamily(await request('familyCreate',{label:$('label').value.trim()}));notice('가족 공간을 만들었습니다. 초대 코드를 만들어 배우자에게 보내세요.');});
-bind('join-family',async()=>{renderFamily(await request('familyJoin',{label:$('label').value.trim(),code:$('invite-code').value.trim().toLowerCase()}));$('invite-code').value='';notice('가족에 연결되었습니다.');});
+bind('create-family',async()=>{renderFamily(await request('familyCreate',{label:$('label').value.trim()}));notice('가족 생성 완료');});
+bind('join-family',async()=>{renderFamily(await request('familyJoin',{label:$('label').value.trim(),code:$('invite-code').value.trim().toLowerCase()}));$('invite-code').value='';notice('가족 연결 완료');});
 bind('invite',async()=>{const invite=await request('familyInvite');$('generated-code').value=invite.code;$('invite-result').hidden=false;});
 bind('share-invite',()=>request('shareInvite',{code:$('generated-code').value}));
 bind('import-history',async()=>renderFamily(await request('familyImport')));
