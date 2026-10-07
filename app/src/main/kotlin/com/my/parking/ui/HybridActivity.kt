@@ -49,6 +49,11 @@ class HybridActivity : AppCompatActivity() {
         timeLoader=RemainingTimeLoader(this,main::renderRemainingTime)
         webView=WebView(this)
         setContentView(webView)
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
+            val padding=insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.ime())
+            view.setPadding(padding.left,padding.top,padding.right,padding.bottom)
+            androidx.core.view.WindowInsetsCompat.CONSUMED
+        }
         if(!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             startActivity(Intent(this,MainActivity::class.java)); finish(); return
         }
@@ -68,6 +73,9 @@ class HybridActivity : AppCompatActivity() {
                 // Never transfer the bridge to links, subframes, or the parking site's login page.
                 if(request.isForMainFrame && request.url.scheme == "https") startActivity(Intent(Intent.ACTION_VIEW,request.url))
                 return true
+            }
+            override fun onReceivedHttpError(view: WebView,request: WebResourceRequest,error: WebResourceResponse) {
+                if(request.isForMainFrame && !isLocal) { isLocal=true; currentOrigin=LOCAL_ORIGIN; view.loadUrl(LOCAL_URL) }
             }
             override fun onReceivedError(view: WebView,request: WebResourceRequest,error: WebResourceError) {
                 if(request.isForMainFrame && !isLocal) { isLocal=true; currentOrigin=LOCAL_ORIGIN; view.loadUrl(LOCAL_URL) }
