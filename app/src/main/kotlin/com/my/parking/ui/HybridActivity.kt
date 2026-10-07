@@ -9,7 +9,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.EditText
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -122,7 +121,6 @@ class HybridActivity : AppCompatActivity() {
                     "register" -> { main.reservationDraftOrNull()?.let { startActivity(ReservationWebActivity.intentFor(this,it)) }; answer(ok()) }
                     "site" -> { startActivity(Intent(this,ReservationWebActivity::class.java)); answer(ok()) }
                     "refreshTime" -> { if(main.beginRemainingTimeRefresh()) timeLoader.refresh(); answer(ok()) }
-                    "configure" -> { answer(ok()); configureServer() }
                     "nativeScreen" -> { startActivity(Intent(this,MainActivity::class.java)); answer(ok()) }
                     "familyImport" -> confirm("기존 내역 공유","이 기기의 기존 예약 내역을 가족에게 공유할까요?",cancelled={ answer(JSONObject().put("ok",false).put("error","취소했습니다.")) }) {
                         container.reservationHistoryRepository.entries().forEach { container.familySharingRepository.enqueue(it,if(it.status.name == "SUCCESS") "SUCCESS" else "UNKNOWN") }
@@ -130,7 +128,7 @@ class HybridActivity : AppCompatActivity() {
                     }
                     "shareInvite" -> {
                         val code=data.getString("code"); require(Regex("[a-f0-9]{32}").matches(code))
-                        val text="우리집 주차 예약 가족 초대\n서버 주소: ${container.familySharingRepository.origin()}\n초대 코드: $code\n앱 가족 설정에서 연결하세요. 24시간 안에 한 번 사용할 수 있습니다."
+                        val text="우리집 주차 예약 가족 초대\n초대 코드: $code\n앱 가족 설정에서 연결하세요. 24시간 안에 한 번 사용할 수 있습니다."
                         startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type="text/plain"; putExtra(Intent.EXTRA_TEXT,text) },"배우자에게 초대 보내기")); answer(ok())
                     }
                     "familyLeave" -> confirm("가족 연결 해제","이 기기의 공유 접근을 해제합니다. 마지막 기기라면 서버의 가족 내역도 삭제됩니다. 계속할까요?",cancelled={ answer(JSONObject().put("ok",false).put("error","취소했습니다.")) }) { family.execute(action,data,answer) }
@@ -140,14 +138,6 @@ class HybridActivity : AppCompatActivity() {
             }.onFailure { answer(JSONObject().put("ok",false).put("error",it.message ?: "요청을 처리할 수 없습니다.")) }
         }
         webView.loadUrl(if(isLocal) LOCAL_URL else "$currentOrigin/")
-    }
-    private fun configureServer() {
-        val input=EditText(this).apply { setText(container.familySharingRepository.origin()); hint="https://myparking-family.example.workers.dev"; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI }
-        AlertDialog.Builder(this).setTitle("웹 UI · 공유 서버 주소").setMessage("본인이 배포한 HTTPS 주소를 입력하세요. 이 주소의 웹 화면이 앱의 예약 기능에 접근합니다.")
-            .setView(input).setNegativeButton("취소",null).setPositiveButton("연결") { _,_ ->
-                runCatching { container.familySharingRepository.configure(input.text.toString()) }.onSuccess { installBridge() }
-                    .onFailure { AlertDialog.Builder(this).setMessage(it.message).setPositiveButton("확인",null).show() }
-            }.show()
     }
     private fun confirm(title: String,message: String,cancelled: ()->Unit,confirmed: ()->Unit) = AlertDialog.Builder(this).setTitle(title).setMessage(message).setOnCancelListener { cancelled() }.setNegativeButton("취소") { _,_ -> cancelled() }.setPositiveButton("확인") { _,_->confirmed() }.show()
     private fun state(): JSONObject {

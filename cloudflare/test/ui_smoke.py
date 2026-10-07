@@ -54,6 +54,8 @@ with sync_playwright() as playwright:
         assert '가족 설정' in page.locator('#history-list').inner_text()
         page.locator('nav [data-page="settings"]').click()
         assert page.locator('#connect-card').is_visible()
+        assert page.locator('#configure').count() == 0
+        assert '서버 주소 설정' not in page.locator('#settings').inner_text()
         assert not errors, errors
         page.close()
     browser.close()

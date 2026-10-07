@@ -14,6 +14,14 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class FamilySharingRepository(private val store: SecureFamilyStore, private val api: FamilyApi = FamilyApi()) {
+    init {
+        // Existing family credentials remain bound to their original server.
+        store.update { state ->
+            if (!state.has("session") && state.optString("origin").isBlank()) {
+                state.put("origin", FamilyServer.DEFAULT_ORIGIN)
+            }
+        }
+    }
     private val mutex = Mutex()
     private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
     fun origin(): String = store.read().optString("origin")

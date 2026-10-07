@@ -26,7 +26,6 @@ function render(s) {
   $('period').textContent=`${dateText(s.startDate)} ~ ${dateText(s.endDate)} · ${days}일`;
   document.querySelectorAll('[data-offset]').forEach(b=>b.classList.toggle('selected',s.startDate===s.today&&days===Number(b.dataset.offset)+1));
   $('remaining').textContent=s.remainingTime;$('refresh-time').disabled=s.refreshing;
-  $('origin').textContent=s.origin||'아직 서버 주소가 없습니다. 아래에서 배포한 주소를 연결하세요.';
   $('open-vehicles').textContent=`저장 차량 ${s.savedVehicles.length}대`;
   const list=$('vehicle-list');list.replaceChildren();
   s.savedVehicles.forEach(v=>{const b=node('button',`${v.label}${v.name?' · '+v.name:''}${s.vehicleNumber===v.number?' ✓':''}`,'vehicle-row');b.addEventListener('click',()=>run(b,async()=>{await request('selectVehicle',{number:v.number});$('vehicles').close();}));list.append(b);});
@@ -63,7 +62,7 @@ $('number').addEventListener('pointerup',e=>{if(selectOnPointerUp){e.preventDefa
 $('number').addEventListener('blur',()=>{selectOnPointerUp=false;});
 for(const id of ['name','number'])$(id).addEventListener('input',()=>{selectOnPointerUp=false;});
 bind('register',async()=>{await draft();await request('register');});bind('save-vehicle',async()=>{await draft();await request('saveVehicle');});
-bind('site',()=>request('site'));bind('refresh-time',()=>request('refreshTime'));bind('configure',()=>request('configure'));bind('native-screen',()=>request('nativeScreen'));
+bind('site',()=>request('site'));bind('refresh-time',()=>request('refreshTime'));bind('native-screen',()=>request('nativeScreen'));
 bind('open-vehicles',()=>{$('vehicles').showModal();});bind('close-vehicles',()=>{$('vehicles').close();});bind('delete-vehicle',async()=>{await request('deleteVehicle');$('vehicles').close();});
 bind('sync',sync);bind('more',async()=>renderFamily(await request('familyMore')));
 bind('create-family',async()=>{renderFamily(await request('familyCreate',{label:$('label').value.trim()}));notice('가족 공간을 만들었습니다. 초대 코드를 만들어 배우자에게 보내세요.');});
