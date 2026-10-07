@@ -84,5 +84,5 @@ val syncHybridUi by tasks.registering(Copy::class) {
     from(rootProject.file("cloudflare/public"))
     into(layout.buildDirectory.dir("generated/hybridAssets/hybrid"))
 }
-android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/hybridAssets"))
+android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/hybridAssets").get().asFile)
 tasks.named("preBuild").configure { dependsOn(syncHybridUi) }
