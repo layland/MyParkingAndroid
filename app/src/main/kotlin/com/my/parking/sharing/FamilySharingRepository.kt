@@ -29,11 +29,13 @@ class FamilySharingRepository(private val store: SecureFamilyStore, private val 
         val validated = FamilyOrigin.validate(origin)
         store.update { require(!it.has("session") || it.optString("origin") == validated) { "가족 연결을 해제한 후 서버를 바꿔 주세요." }; it.put("origin", validated) }
     }
+    fun entryId(entry: ReservationHistoryEntry): String = MessageDigest.getInstance("SHA-256")
+        .digest((entry.attemptedAt.toString()+"|"+entry.vehicleNumber+"|"+entry.startDate+"|"+entry.endDate).toByteArray())
+        .joinToString("") { "%02x".format(it.toInt() and 255) }
     fun enqueue(entry: ReservationHistoryEntry, status: String = entry.status.name, succeeded: Int? = null, total: Int? = null) {
         store.update { state ->
             if (!state.has("session")) return@update
-            val id = MessageDigest.getInstance("SHA-256").digest((entry.attemptedAt.toString()+"|"+entry.vehicleNumber+"|"+entry.startDate+"|"+entry.endDate).toByteArray())
-                .joinToString("") { "%02x".format(it.toInt() and 255) }
+            val id = entryId(entry)
             val count = total ?: (((java.time.temporal.ChronoUnit.DAYS.between(entry.startDate, entry.endDate)+1)+3)/4).toInt()
             val item = JSONObject().put("id",id).put("vehicle",entry.vehicleNumber.dropLast(4)+"****")
                 .put("startDate",entry.startDate.toString()).put("endDate",entry.endDate.toString()).put("attemptedAt",entry.attemptedAt.toString())
@@ -74,7 +76,8 @@ class FamilySharingRepository(private val store: SecureFamilyStore, private val 
         store.update { it.put("cached",remote.put("entries",combined)) }
         JSONObject().put("connected",true).put("entries",combined).put("devices",state.optJSONArray("devices") ?: JSONArray())
             .put("deviceId",state.getJSONObject("session").getString("deviceId")).put("label",state.getJSONObject("session").getString("label"))
-            .put("pending",state.optJSONArray("pending")?.length() ?: 0).put("lastSync",state.optString("lastSync"))
+            .put("pending",state.optJSONArray("pending")?.length() ?: 0)
+            .put("pendingEntries",state.optJSONArray("pending") ?: JSONArray()).put("lastSync",state.optString("lastSync"))
             .put("hasMore",!remote.isNull("nextCursor"))
     } }
     private fun authenticated(path: String,method: String="GET",body: JSONObject?=null): JSONObject {
@@ -105,6 +108,7 @@ class FamilySharingRepository(private val store: SecureFamilyStore, private val 
         return result.put("entries",state.optJSONObject("cached")?.optJSONArray("entries") ?: JSONArray())
             .put("devices",state.optJSONArray("devices") ?: JSONArray()).put("lastSync",state.optString("lastSync"))
             .put("pending",state.optJSONArray("pending")?.length() ?: 0)
+            .put("pendingEntries",state.optJSONArray("pending") ?: JSONArray())
             .put("hasMore",state.optJSONObject("cached")?.opt("nextCursor") != null && !state.optJSONObject("cached")!!.isNull("nextCursor"))
     }
 }

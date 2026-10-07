@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const pending=new Map(); let sequence=0,state=null,family=null,page='reserve',shared=true,syncing=false,noticeTimer;
+const pending=new Map(); let sequence=0,state=null,family=null,page='reserve',syncing=false,noticeTimer;
 function request(action,data={}) {
   if(!window.NativeParking)return Promise.reject(new Error('Android 앱에서 실행해 주세요.'));
   const id=String(++sequence);
@@ -33,15 +33,32 @@ function render(s) {
   $('delete-vehicle').hidden=!s.savedVehicles.some(v=>v.number===s.vehicleNumber);
   renderHistory();
 }
+function historyEntries() {
+  const remote=family?.entries||[], ownId=family?.deviceId;
+  const sameAttempt=(a,b)=>a.vehicle===b.vehicle&&a.startDate===b.startDate&&a.endDate===b.endDate&&Date.parse(a.attemptedAt)===Date.parse(b.attemptedAt);
+  const isOwn=e=>e.deviceId===ownId;
+  const matches=(a,b)=>a.id&&b.id?a.id===b.id:sameAttempt(a,b);
+  const queued=family?.pendingEntries||[];
+  const entries=remote.map(e=>({...e,owner:isOwn(e)?'나':'배우자'}));
+  for(const local of state?.localHistory||[]) {
+    if(remote.some(e=>isOwn(e)&&matches(e,local)))continue;
+    const waiting=queued.find(e=>matches(e,local));
+    entries.push({...local,...waiting,owner:'나',syncLabel:waiting?'동기화 대기':'이 기기에 저장'});
+  }
+  // The encrypted upload queue may outlive the bounded local history.
+  for(const waiting of queued) {
+    if(!entries.some(e=>e.owner==='나'&&matches(e,waiting)))entries.push({...waiting,owner:'나',syncLabel:'동기화 대기'});
+  }
+  return entries.sort((a,b)=>Date.parse(b.attemptedAt)-Date.parse(a.attemptedAt));
+}
 function renderHistory() {
   const list=$('history-list');list.replaceChildren();
-  const entries=shared?(family?.entries||[]):(state?.localHistory||[]);
-  if(!entries.length)list.append(node('p',shared&&!family?.connected?'가족 설정에서 배우자와 연결해 주세요.':'아직 예약 내역이 없습니다.','empty'));
+  const entries=historyEntries();
+  if(!entries.length)list.append(node('p','아직 예약 내역이 없습니다.','empty'));
   const labels={SUCCESS:'등록 성공',FAILURE:'등록 실패',PARTIAL:'일부 등록 후 중단',UNKNOWN:'결과 미확인'};
-  for(const e of entries){const card=node('article',undefined,'history-card');card.append(node('h3',e.vehicle));card.append(node('p',`${dateText(e.startDate)} ~ ${dateText(e.endDate)}`));const result=labels[e.status]||'결과 미확인';card.append(node('span',result+(e.total?` · ${e.succeeded}/${e.total}건`:''),'status '+e.status));const meta=node('div',undefined,'meta');meta.append(node('span',e.author?`등록자: ${e.author}`:'이 기기 기록'),node('span',timestamp(e.attemptedAt)));card.append(meta);list.append(card);}
-  $('shared-mode').classList.toggle('selected',shared);$('local-mode').classList.toggle('selected',!shared);
-  $('sync-state').textContent=shared?(family?.error?`공유 확인 실패: ${family.error} · 저장된 내역을 표시합니다.`:family?.connected?`미전송 ${family.pending}건 · 마지막 갱신 ${timestamp(family.lastSync)}`:'가족 연결 전에는 이 기기에만 저장됩니다.'):'기기 내역 삭제는 공유 서버의 내역에 영향을 주지 않습니다.';
-  $('more').hidden=!shared||!family?.hasMore;
+  for(const e of entries){const card=node('article',undefined,'history-card');card.append(node('h3',e.vehicle));card.append(node('p',`${dateText(e.startDate)} ~ ${dateText(e.endDate)}`));const result=labels[e.status]||'결과 미확인';card.append(node('span',result+(e.total?` · ${e.succeeded}/${e.total}건`:''),'status '+e.status));const meta=node('div',undefined,'meta');meta.append(node('span',e.owner+(e.author?` · ${e.author}`:'')),node('span',timestamp(e.attemptedAt)));card.append(meta);if(e.syncLabel)card.append(node('p',e.syncLabel,'hint'));list.append(card);}
+  $('sync-state').textContent=family?.error?`공유 확인 실패: ${family.error} · 저장된 내역을 표시합니다.`:family?.connected?`동기화 대기 ${family.pending}건 · 마지막 갱신 ${timestamp(family.lastSync)}`:'가족 설정에서 연결하면 배우자의 내역도 함께 볼 수 있습니다.';
+  $('more').hidden=!family?.hasMore;
 }
 function renderFamily(f) {
   family=f;$('connect-card').hidden=f.connected;$('connected-card').hidden=!f.connected;
@@ -71,7 +88,6 @@ bind('invite',async()=>{const invite=await request('familyInvite');$('generated-
 bind('share-invite',()=>request('shareInvite',{code:$('generated-code').value}));
 bind('import-history',async()=>renderFamily(await request('familyImport')));
 bind('leave',async()=>{renderFamily(await request('familyLeave'));$('invite-result').hidden=true;$('generated-code').value='';});
-bind('shared-mode',()=>{shared=true;renderHistory();sync();});bind('local-mode',()=>{shared=false;renderHistory();});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){request('state').then(render).catch(()=>{});sync();}});
 setInterval(()=>{if(page==='history'&&!document.hidden)sync();},30000);
 if(window.visualViewport){const baseline=window.visualViewport.height;window.visualViewport.addEventListener('resize',()=>document.body.classList.toggle('keyboard',window.visualViewport.height<baseline-120));}
