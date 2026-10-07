@@ -22,9 +22,9 @@ jobs:
           node-version: '24'
       - run: node test/worker.test.mjs
       - run: node test/provision.test.mjs
+      - run: node test/account.test.mjs
   deploy:
     needs: validate
-    if: vars.CLOUDFLARE_ACCOUNT_ID != ''
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -38,6 +38,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Confirm deployment account and credentials
+        run: node scripts/resolve-account.mjs
       - run: npm install --no-package-lock
       - name: Create or reuse D1 and set binding
         run: node scripts/ensure-database.mjs
