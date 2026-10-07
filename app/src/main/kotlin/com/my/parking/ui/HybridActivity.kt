@@ -2,6 +2,8 @@ package com.my.parking.ui
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.graphics.Color
+import android.widget.FrameLayout
 import android.net.Uri
 import android.os.Bundle
 import android.webkit.WebResourceError
@@ -10,6 +12,10 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnAttach
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModel
@@ -47,13 +53,27 @@ class HybridActivity : AppCompatActivity() {
             @Suppress("UNCHECKED_CAST") override fun <T: ViewModel> create(modelClass: Class<T>): T = FamilySharingViewModel(container.familySharingRepository) as T
         })[FamilySharingViewModel::class.java]
         timeLoader=RemainingTimeLoader(this,main::renderRemainingTime)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         webView=WebView(this)
-        setContentView(webView)
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
-            val padding=insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.ime())
-            view.setPadding(padding.left,padding.top,padding.right,padding.bottom)
-            androidx.core.view.WindowInsetsCompat.CONSUMED
+        // WebView padding does not reliably move the HTML viewport away from system bars.
+        // Inset its parent so the whole viewport, including fixed web navigation, is resized.
+        val content=FrameLayout(this).apply {
+            setBackgroundColor(Color.rgb(21,59,53))
+            addView(webView,FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,FrameLayout.LayoutParams.MATCH_PARENT
+            ))
         }
+        ViewCompat.setOnApplyWindowInsetsListener(content) { view, insets ->
+            val safeArea=insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or
+                    WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime()
+            )
+            view.setPadding(safeArea.left,safeArea.top,safeArea.right,safeArea.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
+        content.doOnAttach { ViewCompat.requestApplyInsets(it) }
+        setContentView(content)
+        WindowCompat.getInsetsController(window,content).isAppearanceLightStatusBars=false
         if(!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             startActivity(Intent(this,MainActivity::class.java)); finish(); return
         }
