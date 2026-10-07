@@ -124,9 +124,28 @@ class ReservationWebActivity : AppCompatActivity() {
         if (resultHandled) return
         val reservationDraft = draft ?: return
         resultHandled = true
+        var sharedStatus = "UNKNOWN"
+        var sharedSucceeded = 0
+        var sharedTotal = ReservationPeriod.splitForSubmission(reservationDraft.reservationPeriod).size
         val result = runCatching {
             val responseText = String(Base64.decode(encodedResult, Base64.NO_WRAP), Charsets.UTF_8)
             val response = JSONObject(responseText)
+            val responses = response.optJSONArray("responses")
+            var knownFailure = false
+            if (responses != null) {
+                for (index in 0 until responses.length()) {
+                    val item = responses.optJSONObject(index) ?: break
+                    val outcome = ReservationSubmissionResult.from(item.optInt("httpStatus",0),item.takeIf { it.has("result") }?.optString("result"),item.takeIf { it.has("message") }?.optString("message"))
+                    if (outcome is ReservationSubmissionResult.Success) sharedSucceeded++
+                    else { knownFailure = !item.optBoolean("networkError") && item.has("result") && !item.isNull("result"); break }
+                }
+                sharedStatus = when {
+                    sharedSucceeded == sharedTotal -> "SUCCESS"
+                    sharedSucceeded > 0 -> "PARTIAL"
+                    knownFailure -> "FAILURE"
+                    else -> "UNKNOWN"
+                }
+            }
             batchResultMessage(response)
         }.getOrElse {
             ReservationSubmissionResult.Failure(getString(R.string.reservation_result_unknown))
@@ -135,6 +154,11 @@ class ReservationWebActivity : AppCompatActivity() {
             draft = reservationDraft,
             status = result.historyStatus(),
         )
+
+        runCatching {
+            (application as MyParkingApplication).appContainer.reservationHistoryRepository
+                .enqueueLatest(sharedStatus,sharedSucceeded,sharedTotal)
+        }.onFailure { showMessage("기기 내역은 저장했지만 공유 대기열 저장에 실패했습니다. 가족 설정에서 기존 내역 공유를 사용해 주세요.") }
 
         when (result) {
             is ReservationSubmissionResult.Success -> showMessage(result.message.ifBlank { getString(R.string.reservation_success_message) })
@@ -241,3 +265,4 @@ class ReservationWebActivity : AppCompatActivity() {
                 }
     }
 }
+

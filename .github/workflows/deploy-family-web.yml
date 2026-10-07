@@ -1,0 +1,33 @@
+name: Deploy family web
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, agent/end-date-batch-reservation, feature/family-web-ui]
+    paths: ['cloudflare/**', '.github/workflows/deploy-family-web.yml']
+permissions:
+  contents: read
+concurrency:
+  group: family-web-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: vars.CLOUDFLARE_ACCOUNT_ID != '' && vars.CLOUDFLARE_DATABASE_ID != ''
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      DATABASE_ID: ${{ vars.CLOUDFLARE_DATABASE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node test/worker.test.mjs
+      - run: npm install --no-package-lock
+      - name: Set database binding
+        run: node -e "const fs=require('fs'); const p='wrangler.jsonc'; fs.writeFileSync(p,fs.readFileSync(p,'utf8').replace('REPLACE_WITH_D1_DATABASE_ID',process.env.DATABASE_ID));"
+      - run: npm run db:migrate
+      - run: npm run deploy
