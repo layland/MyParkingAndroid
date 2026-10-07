@@ -91,6 +91,7 @@ with sync_playwright() as playwright:
         page.evaluate('''() => { delete window.fixture.localHistory[0].id; window.ParkingApp.render(window.fixture); }''')
         assert page.locator('.history-card').count() == 4
         page.locator('nav [data-page="settings"]').click()
+        page.locator('#connect-card').wait_for(state='visible')
         assert page.locator('#connect-card').is_visible()
         assert page.locator('#configure').count() == 0
         assert '서버 주소 설정' not in page.locator('#settings').inner_text()
