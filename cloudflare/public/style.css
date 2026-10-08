@@ -120,7 +120,7 @@ body { height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr) au
 header { min-width: 0; grid-row: 1; }
 main { grid-row: 2; width: 100%; max-width: 900px; margin: 0 auto; min-height: 0; padding: 12px 16px; overflow: auto; }
 body[data-page="reserve"] main { overflow: hidden; }
-#reserve { height: 100%; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px; }
+#reserve { height: 100%; min-height: 0; display: grid; grid-template-rows: auto auto auto; align-content: start; gap: 10px; }
 #reserve .balance { margin: 0; }
 .reservation-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; min-height: 0; }
 #reserve article { margin: 0; padding: 12px; min-width: 0; }
@@ -170,7 +170,7 @@ body[data-page="reserve"] #notice { bottom: calc(var(--bottom-nav-height, 70px) 
 }
 @media (max-height: 380px) {
   #reserve .balance { display: none; }
-  #reserve { grid-template-rows: minmax(0, 1fr) auto; }
+  #reserve { grid-template-rows: auto auto; }
 }
 body.keyboard header, body.keyboard #reserve .balance { display: none; }
 body.keyboard main { padding: 8px 12px; }
