@@ -61,6 +61,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.webkit:webkit:1.12.1")
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
     implementation(libs.material)
@@ -76,3 +77,12 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
 }
+
+
+// Package the same web UI that is served by Cloudflare, for first launch and offline use.
+val syncHybridUi by tasks.registering(Copy::class) {
+    from(rootProject.file("cloudflare/public"))
+    into(layout.buildDirectory.dir("generated/hybridAssets/hybrid"))
+}
+android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/hybridAssets").get().asFile)
+tasks.named("preBuild").configure { dependsOn(syncHybridUi) }

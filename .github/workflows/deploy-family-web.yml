@@ -1,0 +1,54 @@
+name: Deploy family web
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, agent/end-date-batch-reservation, feature/family-web-ui]
+    paths: ['cloudflare/**', '.github/workflows/deploy-family-web.yml']
+permissions:
+  contents: read
+concurrency:
+  group: family-web-deploy
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node test/worker.test.mjs
+      - run: node test/provision.test.mjs
+      - run: node test/account.test.mjs
+      - name: Check mobile and Fold layouts in Chromium
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+          python test/ui_smoke.py
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      DATABASE_ID: ${{ vars.CLOUDFLARE_DATABASE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Confirm deployment account and credentials
+        run: node scripts/resolve-account.mjs
+      - run: npm install --no-package-lock
+      - name: Create or reuse D1 and set binding
+        run: node scripts/ensure-database.mjs
+      - run: npm run db:migrate
+      - run: npm run deploy
+      - name: Verify deployed server and show app URL
+        run: node scripts/verify-deployment.mjs

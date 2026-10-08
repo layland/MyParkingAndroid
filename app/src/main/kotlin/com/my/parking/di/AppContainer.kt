@@ -9,6 +9,8 @@ import com.my.parking.domain.VehiclePreferences
 /** Composition root; UI depends on the VehiclePreferences interface. */
 class AppContainer(context: Context) {
     val vehiclePreferences: VehiclePreferences = SharedPreferencesVehiclePreferences(context)
-    val reservationHistoryRepository: ReservationHistoryRepository =
-        SharedPreferencesReservationHistoryRepository(context)
+    val familySharingRepository = com.my.parking.sharing.FamilySharingRepository(com.my.parking.sharing.SecureFamilyStore(context))
+    val reservationHistoryRepository: com.my.parking.sharing.SharingHistoryRepository =
+        com.my.parking.sharing.SharingHistoryRepository(SharedPreferencesReservationHistoryRepository(context), familySharingRepository)
 }
+

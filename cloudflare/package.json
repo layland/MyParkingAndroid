@@ -1,0 +1,1 @@
+{"name":"myparking-family","private":true,"type":"module","scripts":{"test":"node --test test/*.test.mjs","deploy":"wrangler deploy","db:create":"wrangler d1 create myparking-family","db:migrate":"wrangler d1 migrations apply DB --remote"},"devDependencies":{"wrangler":"^4.40.0"}}

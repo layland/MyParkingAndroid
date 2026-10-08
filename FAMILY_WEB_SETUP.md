@@ -1,0 +1,79 @@
+# 가족 공유 웹 UI 배포
+
+이 변경은 최신 배포 APK v1.19 기반이다. 두 사람 모두 새 APK를 한 번 설치한다.
+그 이후 HTML/CSS/JS 화면 수정은 Workers 재배포만으로 반영된다. 네이티브 기능·WebMessage 계약 변경은 APK도 업데이트한다.
+
+## Cloudflare 최초 설정
+
+Cloudflare 계정의 Workers와 D1을 사용한다. 유료 플랜으로 전환할 필요는 없다. 무료 한도는 Cloudflare의 현재 요금표에서 확인한다.
+저장소 코드는 완성되어 있지만 Cloudflare 계정 연결과 D1 ID는 실제 계정에서 설정해야 한다.
+
+```sh
+cd cloudflare
+npm install
+npx wrangler login
+npx wrangler d1 create myparking-family
+```
+
+생성 결과의 database_id를 cloudflare/wrangler.jsonc의 REPLACE_WITH_D1_DATABASE_ID에 넣는다. ID는 비밀값이 아니다.
+
+```sh
+npm run db:migrate
+npm run deploy
+```
+
+이 명령은 `/api/*` 공유 API와 `public/` 웹 화면을 같은 HTTPS 주소에 배포한다.
+APK 빌드는 `cloudflare/public/`의 동일한 화면을 자동으로 포함한다.
+
+## 두 사람 연결
+
+1. 새 APK를 두 휴대폰에 설치한다. 기존 차량 목록과 기기 내역은 유지된다.
+2. 두 앱의 가족 설정 → 서버 주소 설정에서 같은 Workers HTTPS 주소를 입력한다.
+3. 한 사람이 표시 이름을 넣고 가족 공간 만들기를 누른다.
+4. 배우자 초대 코드 만들기 → 공유로 코드를 보낸다.
+5. 배우자는 자신의 이름과 코드를 입력해 연결한다. 코드는 24시간 유효하고 한 번만 쓸 수 있다.
+6. 예약은 각각 공식 사이트 로그인 후 등록한다. 연결 이후의 새 결과는 서버와 자동 동기화된다.
+7. 이전 기록도 공유하려면 기존 내역 공유를 선택한다. 실패로만 기록된 과거 내역은 정확한 원인을 알 수 없어 결과 미확인으로 공유한다.
+
+인증 키는 웹 JavaScript나 브라우저 저장소에 노출되지 않는다. 이 웹 화면은 Android 앱 안에서 사용하는 UI이고, 일반 브라우저에서는 가족 내역을 읽을 수 없다.
+주차 사이트의 비밀번호·쿠키는 공유 서버로 전송하지 않는다. 사용자 요청에 따라 차량번호는 가족 내역에 전체 표시하며 공유 서버에도 전체 번호를 저장한다. 이전에 마스킹해 저장한 서버 기록은 원본을 복구할 수 없으므로, 기기에 원본이 남아 있는 본인 기록은 화면에서 원본을 우선 표시한다.
+
+## 웹 자동 배포
+
+GitHub 저장소에 다음을 설정한다.
+
+- 변수 CLOUDFLARE_ACCOUNT_ID: 계정 ID
+- 변수 CLOUDFLARE_DATABASE_ID: 기존 D1을 지정할 때만 필요. 생략하면 이름으로 재사용하거나 자동 생성
+- 비밀 CLOUDFLARE_API_TOKEN: 해당 계정의 Workers Scripts Edit 및 D1 Edit 권한 토큰
+
+Deploy family web workflow를 수동 실행하거나, 합친 운영 브랜치의 cloudflare 파일을 수정해 push한다.
+워크플로는 D1 생성/재사용 → 마이그레이션 → 웹 배포 → 서버·D1·접근 보호 확인을 수행하고 실행 요약에 앱에 넣을 HTTPS 주소를 표시한다. 배포된 URL은 바뀌지 않으므로 두 앱을 다시 설정할 필요가 없다.
+저장소에는 Cloudflare 토큰을 커밋하지 않는다.
+
+## 운영 및 복구
+
+- 전송 실패는 공유 내역에 표시된다. 기기의 암호화된 대기열은 새 예약 후, 앱으로 돌아올 때, 공유 내역 새로고침 때 재전송한다. 예약 등록 요청은 자동 재시도하지 않는다.
+- 중복 전송은 family/device/entry 키로 무시된다. 다른 가족의 데이터는 인증된 기기의 family_id로만 조회한다.
+- 초대 코드 재발급은 이전 코드를 무효화한다. 두 기기가 연결되면 새 초대는 만들 수 없다.
+- 기기 교체는 살아 있는 기기에서 옛 기기를 연결 해제한 뒤 새 초대 코드를 만든다. 해제된 기기의 토큰은 서버에서 즉시 무효화된다.
+- 두 기기를 모두 잃으면 계정 기반 복구는 없다. 새 가족을 만들거나 운영자가 소유 확인 뒤 별도 복구 절차를 수행해야 한다.
+- 가족 연결 해제는 서버 응답을 확인한 뒤 기기의 공유 키와 미전송 기록을 지운다. 마지막 기기라면 D1의 가족·초대·내역도 삭제된다.
+- 기기 내역 삭제는 공유 내역을 삭제하지 않는다. 공식 사이트에서 취소한 예약은 자동 반영되지 않는다.
+- 웹 주소 변경은 가족 연결 해제 후 가능하다. 웹 주소는 예약 기능 접근을 허용할 신뢰 원본이므로 본인이 관리하는 주소만 설정한다.
+- 서버의 TLS 오류나 네트워크 실패 시 APK에 포함한 화면으로 돌아간다. Android System WebView가 오래되면 기존 네이티브 홈 화면으로 돌아간다.
+
+## 검증
+
+`node cloudflare/test/worker.test.mjs`는 SQLite를 이용해 가족 간 접근 격리, 일회용 초대·기기 수, 토큰 해제, 중복 업로드, 데이터 검증, 동일 시각 페이지 조회, CORS·요청 크기와 요청 제한을 검증한다.
+Android는 GitHub Actions에서 단위 테스트와 서명 APK 빌드를 수행한다.
+
+실기기에서는 두 기기 생성/초대, 오프라인 예약 후 공유 재전송, 공유 내역 일부 성공, 기기 해제 후 접근 차단, 저장 차량 선택·번호 전체 선택, 웹 재배포 후 새 화면 로딩을 확인한다.
+실제 주차 예약 검증은 사용자가 명시적으로 등록할 때 수행한다.
+
+## 최소 설정으로 자동 배포
+
+GitHub Actions에 CLOUDFLARE_ACCOUNT_ID 변수와 CLOUDFLARE_API_TOKEN 비밀만 등록하면 됩니다. 계정 ID는 Cloudflare 계정 화면에서 확인하고, 토큰은 해당 계정의 Workers Scripts Edit와 D1 Edit 권한으로 만듭니다. 토큰을 채팅이나 소스에 붙여넣지 마세요.
+
+등록 후 알려주면 feature/family-web-ui 브랜치의 push로 배포를 실행합니다. 수동 실행 버튼은 워크플로 파일이 기본 브랜치에 합쳐진 뒤 사용할 수 있습니다. D1 ID를 미리 만들거나 등록할 필요가 없습니다. 이름이 같은 D1이 있으면 재사용합니다. 성공하면 실행 요약에 웹 주소가 표시됩니다. Cloudflare 계정에 workers.dev 주소가 아직 없으면 Workers 화면에서 한 번 설정해야 할 수 있습니다.
+
+토큰 생성: https://dash.cloudflare.com/profile/api-tokens → Create Token → Create Custom Token → Account / Workers Scripts / Edit 및 Account / D1 / Edit → Account Resources는 사용할 계정만 포함 → Create Token. 발급한 값은 GitHub 저장소 Actions Secret CLOUDFLARE_API_TOKEN에 저장합니다. 계정 ID는 계정 대시보드에서 확인해 Actions Variable CLOUDFLARE_ACCOUNT_ID로 저장합니다.

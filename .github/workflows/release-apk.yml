@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   build-and-release:
+    if: ${{ !contains(github.event.head_commit.message, '[skip apk]') }}
     runs-on: ubuntu-latest
     concurrency:
       group: release-apk
@@ -33,6 +34,22 @@ jobs:
           fi
           echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
 
+      - name: Set up Node for sharing API tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Test sharing API
+        run: |
+          node cloudflare/test/worker.test.mjs
+          node cloudflare/test/provision.test.mjs
+
+      - name: Test web UI in Chromium
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+          python cloudflare/test/ui_smoke.py
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -56,14 +73,23 @@ jobs:
           MY_PARKING_VERSION_CODE: ${{ github.run_number }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew testDebugUnitTest assembleRelease --no-daemon
+
+      - name: Keep signed APK as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyParking-${{ steps.app_version.outputs.name }}-apk
+          path: app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
 
       - name: Publish APK to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.app_version.outputs.name }}
+          target_commitish: ${{ github.sha }}
           name: MyParking ${{ steps.app_version.outputs.name }}
           prerelease: true
           generate_release_notes: true
           files: app/build/outputs/apk/release/app-release.apk
           overwrite_files: true
+
