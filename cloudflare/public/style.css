@@ -204,3 +204,11 @@ body.keyboard #reserve { grid-template-rows: auto auto; align-content: start; }
   .upcoming { font-size: 12px; margin-top: 10px; }
 }
 body.keyboard #reserve #site { display: none; }
+
+@media (max-height: 480px) {
+  #reserve { gap: 4px; }
+  #reserve article { padding: 6px; }
+  #reserve .action-area { gap: 4px; }
+  #reserve #site { min-height: 28px; padding: 2px 4px; font-size: 12px; }
+  .upcoming { margin-top: 4px; }
+}
