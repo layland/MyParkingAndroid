@@ -120,7 +120,7 @@ body { height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr) au
 header { min-width: 0; grid-row: 1; }
 main { grid-row: 2; width: 100%; max-width: 900px; margin: 0 auto; min-height: 0; padding: 12px 16px; overflow: auto; }
 body[data-page="reserve"] main { overflow: hidden; }
-#reserve { height: 100%; min-height: 0; display: grid; grid-template-rows: auto auto auto; align-content: center; gap: clamp(12px, 2vh, 20px); }
+#reserve { height: 100%; min-height: 0; display: grid; grid-template-rows: auto auto auto; align-content: space-between; gap: 12px; }
 #reserve .balance { margin: 0; }
 .reservation-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; min-height: 0; }
 #reserve article { margin: 0; padding: 12px; min-width: 0; }
@@ -138,7 +138,7 @@ body[data-page="reserve"] main { overflow: hidden; }
 #reserve .action-area button { min-height: 48px; padding: 10px 12px; white-space: nowrap; }
 nav { grid-row: 3; position: static; max-width: 900px; width: 100%; margin: auto; transform: none; border-radius: 0; }
 body[data-page="reserve"] #notice { bottom: calc(var(--bottom-nav-height, 70px) + 70px); }
-@media (min-width: 600px), (min-width: 480px) and (max-height: 450px) {
+@media (min-width: 600px) and (max-height: 650px), (min-width: 480px) and (max-height: 450px) {
   .reservation-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
 }
 @media (max-height: 600px) {
@@ -184,3 +184,23 @@ body.keyboard[data-editing="schedule"] .vehicle-card { display: none; }
 #reserve #show-upcoming { flex-shrink: 0; padding: 2px 4px; min-height: 28px; font-size: 11px; }
 body.keyboard .vehicle-inputs { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
 body.keyboard #reserve { grid-template-rows: auto auto; align-content: start; }
+
+/* Give the form itself the available space on taller screens. */
+#reserve #site { grid-column: 1 / -1; min-height: 32px; padding: 4px 8px; font-size: 13px; }
+@media (min-height: 740px) {
+  main { padding: 18px 20px; }
+  #reserve { grid-template-rows: auto minmax(0, 1fr) auto; gap: 16px; align-content: stretch; }
+  .reservation-fields { grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 16px; align-content: stretch; }
+  #reserve article { display: flex; flex-direction: column; justify-content: space-evenly; padding: 16px; }
+  #reserve .section-heading { margin-bottom: 10px; }
+  #reserve .section-heading h2 { font-size: 18px; }
+  #reserve label { font-size: 14px; }
+  #reserve input { min-height: clamp(48px, 6vh, 64px); padding: 12px; margin-top: 8px; }
+  #reserve .date-grid input { font-size: 15px; }
+  #reserve #number { font-size: 24px; }
+  #reserve .chips button { min-height: 46px; font-size: 14px; }
+  #reserve .action-area button { min-height: 54px; font-size: 16px; }
+  #reserve #site { min-height: 38px; font-size: 14px; }
+  .upcoming { font-size: 12px; margin-top: 10px; }
+}
+body.keyboard #reserve #site { display: none; }

@@ -111,7 +111,7 @@ with sync_playwright() as playwright:
         assert not errors, errors
         page.close()
     # Short phone, landscape and Fold viewports must expose every form input and CTA.
-    for width,height in [(320,480),(320,568),(390,844),(844,390),(900,600),(900,420),(320,420)]:
+    for width,height in [(320,480),(320,568),(390,844),(844,390),(900,600),(900,900),(900,420),(320,420)]:
         page = browser.new_page(viewport={'width':width,'height':height})
         page.route('https://ui.example/**', route)
         page.add_init_script(bridge+"""
@@ -137,7 +137,7 @@ with sync_playwright() as playwright:
         page.wait_for_timeout(100)  # allow ResizeObserver and viewport layout to settle
         assert page.evaluate('document.documentElement.scrollHeight<=innerHeight+1'), (width,height,'page scroll')
         assert page.locator('#reserve').evaluate('(e)=>e.scrollHeight<=e.clientHeight+1'), (width,height,'form overflow')
-        for selector in ['#start','#end','#name','#number','#register']:
+        for selector in ['#start','#end','#name','#number','#register','#site']:
             assert page.locator(selector).is_visible()
             assert page.locator(selector).evaluate('(e)=>{const r=e.getBoundingClientRect();const n=document.querySelector("nav").getBoundingClientRect();return r.top>=0&&r.bottom<=n.top+1&&r.left>=0&&r.right<=innerWidth+1}'), (width,height,selector)
         page.locator('#number').click()
