@@ -17,10 +17,17 @@ function dateText(value) {return value.replaceAll('-','.');}
 function timestamp(value) {const d=new Date(value);return Number.isNaN(d.getTime())?'':d.toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}
 function switchPage(next) {page=next;document.body.dataset.page=next;document.querySelectorAll('.page').forEach(n=>n.hidden=n.id!==next);document.querySelectorAll('nav button').forEach(n=>n.classList.toggle('active',n.dataset.page===next));window.scrollTo(0,0);sync();}
 async function draft(){await request('updateDraft',{vehicleNumber:$('number').value,visitorName:$('name').value});}
+const normalizeVehicleNumber=value=>String(value||'').replace(/\s+/g,'').toUpperCase();
+let displayedVehicleNumber='';
 function render(s) {
   if(s.protocol!==1){notice('화면과 앱 버전이 맞지 않습니다. APK를 업데이트해 주세요.','ERROR');return;}
   state=s;
-  for(const [id,key] of [['number','vehicleNumber'],['name','visitorName'],['start','startDate'],['end','endDate']])if(document.activeElement!==$(id))$(id).value=s[key];
+  for(const [id,key] of [['number','vehicleNumber'],['name','visitorName'],['start','startDate'],['end','endDate']]){
+    if(document.activeElement===$(id))continue;
+    if(id==='name'&&document.activeElement===$('number')&&normalizeVehicleNumber($('number').value)!==normalizeVehicleNumber(s.vehicleNumber))continue;
+    $(id).value=s[key];
+  }
+  displayedVehicleNumber=normalizeVehicleNumber($('number').value);
   $('start').min=s.today;$('end').min=s.startDate;const max=localDate(s.startDate);max.setDate(max.getDate()+89);$('end').max=[max.getFullYear(),String(max.getMonth()+1).padStart(2,'0'),String(max.getDate()).padStart(2,'0')].join('-');
   const days=Math.round((localDate(s.endDate)-localDate(s.startDate))/86400000)+1;
   $('period').textContent=`${days}일`;
@@ -120,7 +127,14 @@ let selectOnPointerUp=false;
 $('number').addEventListener('focus',()=>{selectOnPointerUp=true;requestAnimationFrame(()=>$('number').select());});
 $('number').addEventListener('pointerup',e=>{if(selectOnPointerUp){e.preventDefault();$('number').select();selectOnPointerUp=false;}});
 $('number').addEventListener('blur',()=>{selectOnPointerUp=false;});
-for(const id of ['name','number'])$(id).addEventListener('input',()=>{selectOnPointerUp=false;if(id==='number')renderUpcoming();});
+for(const id of ['name','number'])$(id).addEventListener('input',()=>{
+  selectOnPointerUp=false;
+  if(id==='number'){
+    const number=normalizeVehicleNumber($('number').value);
+    if(number!==displayedVehicleNumber)$('name').value='';
+    displayedVehicleNumber=number;renderUpcoming();
+  }
+});
 bind('register',async()=>{await draft();await request('register');});bind('save-vehicle',async()=>{await draft();await request('saveVehicle');});
 bind('site',()=>request('site'));bind('refresh-time',()=>request('refreshTime'));bind('native-screen',()=>request('nativeScreen'));
 bind('open-vehicles',()=>{$('vehicles').showModal();});bind('close-vehicles',()=>{$('vehicles').close();});bind('delete-vehicle',async()=>{await request('deleteVehicle');$('vehicles').close();});

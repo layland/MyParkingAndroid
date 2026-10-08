@@ -41,10 +41,17 @@ with sync_playwright() as playwright:
         page.wait_for_function("document.getElementById('number').value==='TESTCAR'")
         page.locator('#number').click()
         page.wait_for_function("document.getElementById('number').selectionEnd-document.getElementById('number').selectionStart===7")
+        page.locator('#number').fill(' TESTCAR ')
+        assert page.locator('#name').input_value() == 'Demo'
         page.locator('#number').fill('REPLACED')
+        assert page.locator('#name').input_value() == ''
+        # A background state refresh must not restore the previous vehicle's name.
+        page.evaluate('window.ParkingApp.render(window.fixture)')
+        assert page.locator('#name').input_value() == ''
         page.locator('#name').click()
         page.wait_for_function("window.fixture.vehicleNumber==='REPLACED'")
-        assert page.locator('#name').input_value() == 'Demo'
+        assert page.locator('#name').input_value() == ''
+        page.locator('#name').fill('New visitor')
         page.locator('[data-offset="1"]').click()
         page.wait_for_function("document.querySelector('[data-offset=\"1\"]').classList.contains('selected')")
         assert page.locator('.chips button.selected').count() == 1  # date selection only
