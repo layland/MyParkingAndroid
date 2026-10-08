@@ -67,7 +67,7 @@ function renderUpcoming() {
   const number=$('number').value.trim();$('upcoming').hidden=!number||!state;
   if(!number||!state)return;
   const entries=upcomingEntries(number,historyEntries(),state.today);
-  const labels={SUCCESS:'등록 성공',PARTIAL:'일부 성공',UNKNOWN:'결과 미확인'};
+  const labels={SUCCESS:'예약됨',PARTIAL:'일부 성공',UNKNOWN:'결과 미확인'};
   const period=e=>e.startDate===e.endDate?dateText(e.startDate):`${dateText(e.startDate)} ~ ${dateText(e.endDate)}`;
   let text=entries.length?`${period(entries[0])} · ${labels[entries[0].status]}${entries.length>1?` · 외 ${entries.length-1}건`:''}`:
     syncing?'예약 기록 확인 중…':family?.hasMore?'조회된 기록 없음 · 이전 내역 미확인':'오늘 이후 저장된 예약 기록 없음';
@@ -87,7 +87,7 @@ function renderHistory() {
   const list=$('history-list');list.replaceChildren();
   const entries=historyEntries();
   if(!entries.length)list.append(node('p','아직 예약 내역이 없습니다.','empty'));
-  const labels={SUCCESS:'등록 성공',FAILURE:'등록 실패',PARTIAL:'일부 등록 후 중단',UNKNOWN:'결과 미확인'};
+  const labels={SUCCESS:'예약됨',FAILURE:'등록 실패',PARTIAL:'일부 등록 후 중단',UNKNOWN:'결과 미확인'};
   for(const e of entries){
     const card=node('article',undefined,'history-card'),heading=node('div',undefined,'history-heading');
     const result=labels[e.status]||'결과 미확인';
