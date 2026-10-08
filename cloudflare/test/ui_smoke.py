@@ -112,6 +112,7 @@ with sync_playwright() as playwright:
         page.close()
     # Short phone, landscape and Fold viewports must expose every form input and CTA.
     for width,height in [(320,480),(320,568),(390,844),(844,390),(900,600),(900,900),(900,420),(320,420)]:
+        print(f'Checking viewport {width}x{height}', flush=True)
         page = browser.new_page(viewport={'width':width,'height':height})
         page.route('https://ui.example/**', route)
         page.add_init_script(bridge+"""
