@@ -120,7 +120,7 @@ body { height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr) au
 header { min-width: 0; grid-row: 1; }
 main { grid-row: 2; width: 100%; max-width: 900px; margin: 0 auto; min-height: 0; padding: 12px 16px; overflow: auto; }
 body[data-page="reserve"] main { overflow: hidden; }
-#reserve { height: 100%; min-height: 0; display: grid; grid-template-rows: auto auto auto; align-content: start; gap: 10px; }
+#reserve { height: 100%; min-height: 0; display: grid; grid-template-rows: auto auto auto; align-content: center; gap: clamp(12px, 2vh, 20px); }
 #reserve .balance { margin: 0; }
 .reservation-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; min-height: 0; }
 #reserve article { margin: 0; padding: 12px; min-width: 0; }
@@ -145,7 +145,7 @@ body[data-page="reserve"] #notice { bottom: calc(var(--bottom-nav-height, 70px) 
   header { padding-top: calc(6px + env(safe-area-inset-top)); padding-bottom: 6px; }
   h1 { font-size: 16px; }
   main { padding: 8px 12px; }
-  #reserve { gap: 6px; }
+  #reserve { align-content: start; gap: 6px; }
   #reserve article { padding: 8px; }
   #reserve .section-heading { margin-bottom: 4px; }
   #reserve .section-heading h2 { font-size: 14px; }
@@ -183,4 +183,4 @@ body.keyboard[data-editing="schedule"] .vehicle-card { display: none; }
 #upcoming-summary { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #reserve #show-upcoming { flex-shrink: 0; padding: 2px 4px; min-height: 28px; font-size: 11px; }
 body.keyboard .vehicle-inputs { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
-body.keyboard #reserve { grid-template-rows: auto auto; }
+body.keyboard #reserve { grid-template-rows: auto auto; align-content: start; }
