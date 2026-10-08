@@ -141,6 +141,10 @@ with sync_playwright() as playwright:
         for selector in ['#start','#end','#name','#number','#register','#site']:
             assert page.locator(selector).is_visible()
             assert page.locator(selector).evaluate('(e)=>{const r=e.getBoundingClientRect();const n=document.querySelector("nav").getBoundingClientRect();return r.top>=0&&r.bottom<=n.top+1&&r.left>=0&&r.right<=innerWidth+1}'), (width,height,selector)
+        name_box=page.locator('#name').bounding_box()
+        number_box=page.locator('#number').bounding_box()
+        assert abs(name_box['height']-number_box['height'])<1, (width,height,'input heights')
+        assert abs(name_box['width']-number_box['width'])<1, (width,height,'input widths')
         page.locator('#number').click()
         page.set_viewport_size({'width':width,'height':260})
         page.wait_for_function("document.body.classList.contains('keyboard')")

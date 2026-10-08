@@ -132,7 +132,7 @@ body[data-page="reserve"] main { overflow: hidden; }
 #reserve .date-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
 #reserve input { margin-top: 4px; padding: 9px 8px; min-height: 42px; }
 #reserve .date-grid input { font-size: 13px; }
-.vehicle-inputs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 8px; }
+.vehicle-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 #reserve #number { font-size: 20px; letter-spacing: 0; }
 #reserve .action-area { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; padding: 0; background: var(--bg); }
 #reserve .action-area button { min-height: 48px; padding: 10px 12px; white-space: nowrap; }
@@ -182,7 +182,7 @@ body.keyboard[data-editing="schedule"] .vehicle-card { display: none; }
 .upcoming { display: flex; align-items: center; gap: 6px; margin-top: 6px; min-width: 0; color: var(--muted); font-size: 11px; }
 #upcoming-summary { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #reserve #show-upcoming { flex-shrink: 0; padding: 2px 4px; min-height: 28px; font-size: 11px; }
-body.keyboard .vehicle-inputs { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
+body.keyboard .vehicle-inputs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 body.keyboard #reserve { grid-template-rows: auto auto; align-content: start; }
 
 /* Give the form itself the available space on taller screens. */
@@ -211,4 +211,13 @@ body.keyboard #reserve #site { display: none; }
   #reserve .action-area { gap: 4px; }
   #reserve #site { min-height: 28px; padding: 2px 4px; font-size: 12px; }
   .upcoming { margin-top: 4px; }
+}
+
+/* Both vehicle fields use the same box size despite different text sizes. */
+#reserve .vehicle-inputs input { height: 48px; min-height: 48px; line-height: 1.25; }
+@media (max-height: 600px) {
+  #reserve .vehicle-inputs input { height: 40px; min-height: 40px; }
+}
+@media (min-height: 740px) {
+  #reserve .vehicle-inputs input { height: clamp(56px, 6vh, 64px); min-height: 56px; padding: 10px 12px; }
 }
