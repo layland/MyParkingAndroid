@@ -160,7 +160,7 @@ body[data-page="reserve"] #notice { bottom: calc(var(--bottom-nav-height, 70px) 
   nav button { padding-top: 2px; padding-bottom: 2px; }
   nav span { height: 24px; margin-bottom: 1px; }
 }
-@media (max-width: 479px) and (max-height: 460px) {
+@media (max-width: 479px) and (max-height: 520px) {
   .reservation-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
   #reserve .date-grid, .vehicle-inputs { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   #reserve .chips, #reserve .section-heading h2 { display: none; }
@@ -178,3 +178,9 @@ body.keyboard #reserve { grid-template-rows: minmax(0, 1fr) auto; }
 body.keyboard .reservation-fields { grid-template-columns: minmax(0, 1fr); }
 body.keyboard[data-editing="vehicle"] .schedule-card,
 body.keyboard[data-editing="schedule"] .vehicle-card { display: none; }
+
+.upcoming { display: flex; align-items: center; gap: 6px; margin-top: 6px; min-width: 0; color: var(--muted); font-size: 11px; }
+#upcoming-summary { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#reserve #show-upcoming { flex-shrink: 0; padding: 2px 4px; min-height: 28px; font-size: 11px; }
+body.keyboard .vehicle-inputs { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
+body.keyboard #reserve { grid-template-rows: auto auto; }

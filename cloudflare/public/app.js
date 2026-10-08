@@ -15,7 +15,7 @@ function node(tag,text,className) { const n=document.createElement(tag);if(text!
 function localDate(value) { return new Date(value+'T12:00:00'); }
 function dateText(value) {return value.replaceAll('-','.');}
 function timestamp(value) {const d=new Date(value);return Number.isNaN(d.getTime())?'':d.toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}
-function switchPage(next) {page=next;document.body.dataset.page=next;document.querySelectorAll('.page').forEach(n=>n.hidden=n.id!==next);document.querySelectorAll('nav button').forEach(n=>n.classList.toggle('active',n.dataset.page===next));window.scrollTo(0,0);if(next!=='reserve')sync();}
+function switchPage(next) {page=next;document.body.dataset.page=next;document.querySelectorAll('.page').forEach(n=>n.hidden=n.id!==next);document.querySelectorAll('nav button').forEach(n=>n.classList.toggle('active',n.dataset.page===next));window.scrollTo(0,0);sync();}
 async function draft(){await request('updateDraft',{vehicleNumber:$('number').value,visitorName:$('name').value});}
 function render(s) {
   if(s.protocol!==1){notice('화면과 앱 버전이 맞지 않습니다. APK를 업데이트해 주세요.','ERROR');return;}
@@ -55,6 +55,28 @@ function historyEntries() {
   }
   return entries.sort((a,b)=>Date.parse(b.attemptedAt)-Date.parse(a.attemptedAt));
 }
+function upcomingEntries(vehicle,entries,today) {
+  const normalize=value=>String(value||'').replace(/\s+/g,'').toUpperCase();
+  const number=normalize(vehicle);
+  if(!number||number.includes('*'))return [];
+  return entries.filter(e=>!e.vehicle.includes('*')&&normalize(e.vehicle)===number&&
+    e.endDate>=today&&['SUCCESS','PARTIAL','UNKNOWN'].includes(e.status))
+    .sort((a,b)=>a.startDate.localeCompare(b.startDate)||a.endDate.localeCompare(b.endDate));
+}
+function renderUpcoming() {
+  const number=$('number').value.trim();$('upcoming').hidden=!number||!state;
+  if(!number||!state)return;
+  const entries=upcomingEntries(number,historyEntries(),state.today);
+  const labels={SUCCESS:'등록 성공',PARTIAL:'일부 성공',UNKNOWN:'결과 미확인'};
+  const period=e=>e.startDate===e.endDate?dateText(e.startDate):`${dateText(e.startDate)} ~ ${dateText(e.endDate)}`;
+  let text=entries.length?`${period(entries[0])} · ${labels[entries[0].status]}${entries.length>1?` · 외 ${entries.length-1}건`:''}`:
+    syncing?'예약 기록 확인 중…':family?.hasMore?'조회된 기록 없음 · 이전 내역 미확인':'오늘 이후 저장된 예약 기록 없음';
+  if(family?.error)text+=' · 공유 확인 실패';
+  $('upcoming-summary').textContent=text;$('show-upcoming').hidden=!entries.length;
+  const list=$('upcoming-list');list.replaceChildren();
+  for(const e of entries){const card=node('article',undefined,'history-card');card.append(node('p',period(e),'history-dates'),node('span',labels[e.status]+` · ${e.owner}`,'status '+e.status));list.append(card);}
+  if(!entries.length)list.append(node('p',text,'hint'));
+}
 function savedVehicleName(vehicle) {
   if(!vehicle||vehicle.includes('*'))return '';
   const normalize=value=>String(value||'').replace(/\s+/g,'').toUpperCase();
@@ -79,15 +101,16 @@ function renderHistory() {
   const syncNote=family?.error?`공유 확인 실패: ${family.error}`:family?.pending?`동기화 대기 ${family.pending}건`:'';
   $('sync-state').textContent=syncNote;$('sync-state').hidden=!syncNote;
   $('more').hidden=!family?.hasMore;
+  renderUpcoming();
 }
 function renderFamily(f) {
   family=f;$('connect-card').hidden=f.connected;$('connected-card').hidden=!f.connected;
   if(f.connected){$('family-label').textContent=f.label;const list=$('devices');list.replaceChildren();for(const d of f.devices||[]){const row=node('div',undefined,'device-row');row.append(node('span',d.label+(d.id===f.deviceId?' (이 기기)':'')));if(d.id!==f.deviceId){const b=node('button','연결 해제','subtle');b.addEventListener('click',()=>run(b,async()=>renderFamily(await request('familyRevoke',{deviceId:d.id}))));row.append(b);}list.append(row);}$('invite').disabled=(f.devices||[]).length>=2;}
   renderHistory();
 }
-async function sync(){if(syncing||!window.NativeParking)return;syncing=true;$('sync').disabled=true;try{renderFamily(await request('familySync'));}catch(e){notice(e.message,'ERROR');}finally{syncing=false;$('sync').disabled=false;}}
+async function sync(){if(syncing||!window.NativeParking)return;syncing=true;$('sync').disabled=true;try{renderFamily(await request('familySync'));while(page==='reserve'&&family?.connected&&!family.error&&family.hasMore){renderFamily(await request('familyMore'));}}catch(e){notice(e.message,'ERROR');}finally{syncing=false;$('sync').disabled=false;renderUpcoming();}}
 function bind(id,work){$(id).addEventListener('click',()=>run($(id),work));}
-window.ParkingApp={render,resume(s){render(s);sync();},notice:message=>notice(message.text,message.kind),back(){if($('vehicles').open){$('vehicles').close();return true;}if(page!=='reserve'){switchPage('reserve');return true;}return false;}};
+window.ParkingApp={render,resume(s){render(s);sync();},notice:message=>notice(message.text,message.kind),back(){if($('upcoming-dialog').open){$('upcoming-dialog').close();return true;}if($('vehicles').open){$('vehicles').close();return true;}if(page!=='reserve'){switchPage('reserve');return true;}return false;}};
 if(window.NativeParking){window.NativeParking.onmessage=event=>{const result=JSON.parse(event.data);const p=pending.get(result.id);if(!p)return;clearTimeout(p.timer);pending.delete(result.id);result.ok?p.resolve(result.data):p.reject(new Error(result.error));};request('state').then(render).then(sync).catch(e=>notice(e.message,'ERROR'));}else{$('browser-note').hidden=false;document.querySelectorAll('button,input').forEach(e=>e.disabled=true);}
 document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>switchPage(b.dataset.page)));
 document.querySelectorAll('[data-offset]').forEach(b=>b.addEventListener('click',()=>run(b,()=>request('quickDate',{offset:Number(b.dataset.offset)}))));
@@ -97,10 +120,11 @@ let selectOnPointerUp=false;
 $('number').addEventListener('focus',()=>{selectOnPointerUp=true;requestAnimationFrame(()=>$('number').select());});
 $('number').addEventListener('pointerup',e=>{if(selectOnPointerUp){e.preventDefault();$('number').select();selectOnPointerUp=false;}});
 $('number').addEventListener('blur',()=>{selectOnPointerUp=false;});
-for(const id of ['name','number'])$(id).addEventListener('input',()=>{selectOnPointerUp=false;});
+for(const id of ['name','number'])$(id).addEventListener('input',()=>{selectOnPointerUp=false;if(id==='number')renderUpcoming();});
 bind('register',async()=>{await draft();await request('register');});bind('save-vehicle',async()=>{await draft();await request('saveVehicle');});
 bind('site',()=>request('site'));bind('refresh-time',()=>request('refreshTime'));bind('native-screen',()=>request('nativeScreen'));
 bind('open-vehicles',()=>{$('vehicles').showModal();});bind('close-vehicles',()=>{$('vehicles').close();});bind('delete-vehicle',async()=>{await request('deleteVehicle');$('vehicles').close();});
+bind('show-upcoming',()=>{$('upcoming-dialog').showModal();});bind('close-upcoming',()=>{$('upcoming-dialog').close();});
 bind('sync',sync);bind('more',async()=>renderFamily(await request('familyMore')));
 bind('create-family',async()=>{renderFamily(await request('familyCreate',{label:$('label').value.trim()}));notice('가족 생성 완료');});
 bind('join-family',async()=>{renderFamily(await request('familyJoin',{label:$('label').value.trim(),code:$('invite-code').value.trim().toLowerCase()}));$('invite-code').value='';notice('가족 연결 완료');});

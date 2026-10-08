@@ -107,9 +107,26 @@ with sync_playwright() as playwright:
     for width,height in [(320,480),(320,568),(390,844),(844,390),(900,600),(900,420),(320,420)]:
         page = browser.new_page(viewport={'width':width,'height':height})
         page.route('https://ui.example/**', route)
-        page.add_init_script(bridge)
+        page.add_init_script(bridge+"""
+        window.fixture.localHistory=[
+          {id:'ongoing',vehicle:'TESTCAR',startDate:'2026-10-01',endDate:'2026-10-08',attemptedAt:'2026-10-01T10:00:00Z',status:'SUCCESS'},
+          {id:'future',vehicle:'TESTCAR',startDate:'2026-10-09',endDate:'2026-10-10',attemptedAt:'2026-10-01T11:00:00Z',status:'PARTIAL'},
+          {id:'today',vehicle:'TESTCAR',startDate:'2026-10-07',endDate:'2026-10-07',attemptedAt:'2026-10-01T12:00:00Z',status:'UNKNOWN'},
+          {id:'past',vehicle:'TESTCAR',startDate:'2026-10-01',endDate:'2026-10-06',attemptedAt:'2026-10-01T09:00:00Z',status:'SUCCESS'},
+          {id:'failed',vehicle:'TESTCAR',startDate:'2026-10-09',endDate:'2026-10-10',attemptedAt:'2026-10-01T13:00:00Z',status:'FAILURE'}
+        ];
+        """)
         page.goto('https://ui.example/')
         page.wait_for_function("document.getElementById('number').value==='TESTCAR'")
+        assert '외 2건' in page.locator('#upcoming-summary').inner_text()
+        page.locator('#show-upcoming').click()
+        assert page.locator('#upcoming-list .history-card').count()==3
+        assert '일부 성공' in page.locator('#upcoming-list').inner_text()
+        assert '결과 미확인' in page.locator('#upcoming-list').inner_text()
+        page.locator('#close-upcoming').click()
+        page.locator('#number').fill('OTHER')
+        assert '저장된 예약 기록 없음' in page.locator('#upcoming-summary').inner_text()
+        page.locator('#number').fill('TESTCAR')
         page.wait_for_timeout(100)  # allow ResizeObserver and viewport layout to settle
         assert page.evaluate('document.documentElement.scrollHeight<=innerHeight+1'), (width,height,'page scroll')
         assert page.locator('#reserve').evaluate('(e)=>e.scrollHeight<=e.clientHeight+1'), (width,height,'form overflow')
