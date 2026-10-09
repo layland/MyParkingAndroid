@@ -62,3 +62,12 @@ bash scripts/setup-signing.sh
 
 키와 비밀번호는 저장소 밖 사용자 설정 폴더에 권한을 제한해 저장됩니다. 스크립트가 표시하는 백업 폴더를 안전하게 보관하세요.
 이 스크립트는 기존 Android 서명 Secrets가 있으면 덮어쓰지 않고 중단합니다.
+
+## 화면 구성
+
+Seconds의 큰 타이머·구간별 색상과 Material 3의 정보 계층을 참고했습니다.
+타이머와 조작부는 고정하고 운동·음성 설정은 탭으로 분리했습니다. 숫자 입력은 짧은 폭으로, 멘트는 여러 줄로 표시하며 화면 폭과 글씨 크기에 따라 배치를 조정합니다. 저장 버튼은 시스템 UI와 키보드 여백 안에서 유지됩니다.
+
+- https://www.intervaltimer.com/app
+- https://m3.material.io/styles/color/the-color-system
+- https://developer.android.com/develop/adaptive-apps

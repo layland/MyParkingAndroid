@@ -37,4 +37,22 @@
     <string name="tts_ready">한국어 음성 안내 준비 완료</string>
     <string name="tts_error">한국어 TTS를 사용할 수 없습니다. 기기의 음성 엔진과 한국어 음성 데이터를 확인하세요. 타이머는 계속 사용할 수 있습니다.</string>
     <string name="app_version">버전 %1$s</string>
+    <string name="timer_clock">%1$02d:%2$02d</string>
+    <string name="tab_workout">운동 설정</string>
+    <string name="tab_voice">음성 코치</string>
+    <string name="duration_work">운동 시간</string>
+    <string name="duration_rest">휴식 시간</string>
+    <string name="unit_seconds">초</string>
+    <string name="unit_sets">세트</string>
+    <string name="workout_help">시간과 반복 횟수를 내 리듬에 맞춰요.</string>
+    <string name="work_range">1~3600초</string>
+    <string name="rest_range">0초로 설정하면 휴식을 건너뛰어요.</string>
+    <string name="sets_help">1~100세트까지 반복할 수 있어요.</string>
+    <string name="voice_timing">음성 안내 타이밍</string>
+    <string name="voice_timing_help">0초로 설정하면 해당 안내를 끌 수 있어요.</string>
+    <string name="countdown_short">마지막 카운트다운</string>
+    <string name="countdown_help">마지막 몇 초를 읽을까요? · 최대 60초</string>
+    <string name="encourage_short">응원 간격</string>
+    <string name="encourage_help">운동 중 이 간격으로 응원해요.</string>
+    <string name="phrases_help">빈 멘트는 읽지 않아요. 저장 후 다음 운동에 적용돼요.</string>
 </resources>
