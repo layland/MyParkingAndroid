@@ -4,6 +4,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,10 +51,18 @@ internal fun SettingsPanel(config: WorkoutConfig, state: WorkoutState, voice: Vo
     val validCountdown = (countdown.toIntOrNull() ?: -1) in 0..WorkoutConfig.MAX_COUNTDOWN
     val validEvery = (every.toIntOrNull() ?: -1) in 0..WorkoutConfig.MAX_SECONDS
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(UiSpace.gap)) {
-        TabRow(selectedTabIndex = selectedTab, containerColor = MaterialTheme.colorScheme.background) {
+        Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+            .padding(UiSpace.segmentedPadding).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(UiSpace.small)) {
             listOf(R.string.tab_workout, R.string.tab_voice).forEachIndexed { index, label ->
-                Tab(selected = selectedTab == index, onClick = { selectedTab = index; focus.clearFocus() },
-                    text = { Text(stringResource(label)) })
+                val selected = selectedTab == index
+                Surface(Modifier.weight(1f).selectable(selected = selected, role = Role.Tab,
+                    onClick = { selectedTab = index; focus.clearFocus() }), shape = CircleShape,
+                    color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant) {
+                    Box(Modifier.heightIn(min = UiSpace.touchTarget).padding(UiSpace.small), contentAlignment = Alignment.Center) {
+                        Text(stringResource(label), style = MaterialTheme.typography.labelLarge,
+                            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
         }
         val scrollState = key(selectedTab) { rememberScrollState() }
@@ -51,22 +71,15 @@ internal fun SettingsPanel(config: WorkoutConfig, state: WorkoutState, voice: Vo
             if (!enabled) Text(stringResource(R.string.edit_hint), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (selectedTab == 0) {
-                SettingsCard(R.string.settings, R.string.workout_help) {
-                    BoxWithConstraints(Modifier.fillMaxWidth()) {
-                        if (maxWidth / LocalDensity.current.fontScale >= UiSpace.pairBreakpoint) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(UiSpace.section)) {
-                                DurationField(R.string.duration_work, work, enabled, validWork, Modifier.weight(1f)) { work = it; message = 0 }
-                                DurationField(R.string.duration_rest, rest, enabled, validRest, Modifier.weight(1f)) { rest = it; message = 0 }
-                            }
-                        } else {
-                            Column(verticalArrangement = Arrangement.spacedBy(UiSpace.gap)) {
-                                NumericRow(R.string.duration_work, R.string.work_range, work, enabled, validWork) { work = it; message = 0 }
-                                NumericRow(R.string.duration_rest, R.string.rest_range, rest, enabled, validRest) { rest = it; message = 0 }
-                            }
-                        }
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(UiSpace.cardRadius),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Column(Modifier.padding(horizontal = UiSpace.screen, vertical = UiSpace.small)) {
+                        NumericRow(R.string.duration_work, null, work, enabled, validWork, icon = R.drawable.ic_work) { work = it; message = 0 }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        NumericRow(R.string.duration_rest, null, rest, enabled, validRest, icon = R.drawable.ic_rest) { rest = it; message = 0 }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        NumericRow(R.string.sets, null, sets, enabled, validSets, R.string.unit_sets, R.drawable.ic_repeat) { sets = it; message = 0 }
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    NumericRow(R.string.sets, R.string.sets_help, sets, enabled, validSets, R.string.unit_sets) { sets = it; message = 0 }
                 }
             } else {
                 SettingsCard(R.string.voice_timing, R.string.voice_timing_help) {
@@ -86,16 +99,19 @@ internal fun SettingsPanel(config: WorkoutConfig, state: WorkoutState, voice: Vo
                     VoiceStatus.ERROR -> R.string.tts_error
                 }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
-        if (message != 0) Text(stringResource(message), style = MaterialTheme.typography.bodySmall,
-            color = if (message == R.string.invalid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
-        Button(enabled = enabled, onClick = {
-            val candidate = WorkoutConfig(work.toIntOrNull() ?: -1, rest.toIntOrNull() ?: -1, sets.toIntOrNull() ?: -1,
-                countdown.toIntOrNull() ?: -1, every.toIntOrNull() ?: -1, start, restPhrase, finish, encouragement)
-            if (candidate.valid()) { save(candidate); focus.clearFocus(); message = R.string.saved }
-            else message = R.string.invalid
-        }, modifier = Modifier.fillMaxWidth().heightIn(min = UiSpace.buttonHeight), shape = RoundedCornerShape(UiSpace.fieldRadius)) {
-            Text(stringResource(R.string.save))
+            if (message != 0) Text(stringResource(message), style = MaterialTheme.typography.bodySmall,
+                color = if (message == R.string.invalid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+            OutlinedButton(enabled = enabled, onClick = {
+                val candidate = WorkoutConfig(work.toIntOrNull() ?: -1, rest.toIntOrNull() ?: -1, sets.toIntOrNull() ?: -1,
+                    countdown.toIntOrNull() ?: -1, every.toIntOrNull() ?: -1, start, restPhrase, finish, encouragement)
+                if (candidate.valid()) { save(candidate); focus.clearFocus(); message = R.string.saved }
+                else message = R.string.invalid
+            }, modifier = Modifier.fillMaxWidth().heightIn(min = UiSpace.buttonHeight), shape = CircleShape) {
+                Text(stringResource(R.string.save))
+            }
+            if (selectedTab == 0) Text(stringResource(R.string.workout_summary, config.workSeconds, config.restSeconds, config.sets),
+                modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -115,22 +131,19 @@ private fun SettingsCard(title: Int, help: Int, content: @Composable ColumnScope
 }
 
 @Composable
-private fun DurationField(label: Int, value: String, enabled: Boolean, valid: Boolean, modifier: Modifier, change: (String) -> Unit) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(UiSpace.small)) {
-        Text(stringResource(label), style = MaterialTheme.typography.labelLarge)
-        NumberInput(label, value, enabled, valid, R.string.unit_seconds, change)
-    }
-}
-
-@Composable
-private fun NumericRow(label: Int, help: Int, value: String, enabled: Boolean, valid: Boolean,
-                       unit: Int = R.string.unit_seconds, change: (String) -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
+private fun NumericRow(label: Int, help: Int?, value: String, enabled: Boolean, valid: Boolean,
+                       unit: Int = R.string.unit_seconds, icon: Int? = null, change: (String) -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxWidth().heightIn(min = UiSpace.rowHeight).padding(vertical = UiSpace.small)) {
         val stack = maxWidth / LocalDensity.current.fontScale < UiSpace.pairBreakpoint
         val description: @Composable () -> Unit = {
-            Column(verticalArrangement = Arrangement.spacedBy(UiSpace.small)) {
-                Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
-                Text(stringResource(help), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(UiSpace.gap)) {
+                if (icon != null) Icon(painterResource(icon), contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(UiSpace.icon))
+                Column(verticalArrangement = Arrangement.spacedBy(UiSpace.small)) {
+                    Text(stringResource(label), style = MaterialTheme.typography.bodyLarge)
+                    if (help != null) Text(stringResource(help), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
         if (stack) {
@@ -150,15 +163,25 @@ private fun NumericRow(label: Int, help: Int, value: String, enabled: Boolean, v
 @Composable
 private fun NumberInput(label: Int, value: String, enabled: Boolean, valid: Boolean, unit: Int, change: (String) -> Unit) {
     val accessibleLabel = stringResource(label)
+    val focus = LocalFocusManager.current
+    val scheme = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(UiSpace.fieldRadius)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(UiSpace.small)) {
-        OutlinedTextField(value, onValueChange = change, enabled = enabled, singleLine = true, isError = !valid,
+        BasicTextField(value, onValueChange = change, enabled = enabled, singleLine = true,
             modifier = Modifier.width(UiSpace.numberWidth * LocalDensity.current.fontScale)
+                .heightIn(min = UiSpace.touchTarget).background(scheme.background, shape)
+                .border(UiSpace.inputBorder, if (valid) scheme.outlineVariant else scheme.error, shape)
                 .semantics { contentDescription = accessibleLabel },
-            shape = RoundedCornerShape(UiSpace.fieldRadius), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            textStyle = MaterialTheme.typography.titleMedium,
-            // The external label remains visible; semantics names the short input for screen readers.
-            label = null)
-        Text(stringResource(unit), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
+            cursorBrush = SolidColor(scheme.primary),
+            textStyle = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.Center,
+                color = if (!valid) scheme.error else if (enabled) scheme.onSurface else scheme.onSurfaceVariant),
+            decorationBox = { inner ->
+                Box(Modifier.heightIn(min = UiSpace.touchTarget).padding(horizontal = UiSpace.small, vertical = UiSpace.small),
+                    contentAlignment = Alignment.Center) { inner() }
+            })
+        Text(stringResource(unit), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
     }
 }
 

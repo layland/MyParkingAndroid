@@ -71,3 +71,7 @@ Seconds의 큰 타이머·구간별 색상과 Material 3의 정보 계층을 참
 - https://www.intervaltimer.com/app
 - https://m3.material.io/styles/color/the-color-system
 - https://developer.android.com/develop/adaptive-apps
+
+### 타이머 화면 시안 반영
+
+승인된 화면 시안에 맞춰 원형 잔여 시간 표시, 고정된 시작·초기화 영역, 세그먼트 형태 탭과 짧은 숫자 입력 행을 사용합니다. 설정 저장은 스크롤 영역 안에서 설정 바로 아래에 배치합니다. 작은 화면·큰 글자·키보드 표시에서는 타이머를 축약하고 설정 영역을 스크롤합니다. 밝은 배경의 시스템 바는 어두운 아이콘을 사용합니다. Google Material 3의 컴포넌트·접근성 기준을 참고해 직접 구현했으며 외부 템플릿 코드를 복사하지 않았습니다.

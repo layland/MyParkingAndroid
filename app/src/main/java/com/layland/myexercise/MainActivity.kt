@@ -6,6 +6,9 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
+import android.graphics.Color
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -22,6 +25,10 @@ class MainActivity : ComponentActivity() {
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+        )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         val repository: SettingsRepository = PreferencesSettings(this)
         setContent {
@@ -46,14 +53,12 @@ private fun WorkoutScreen(repository: SettingsRepository, command: (String) -> U
         val compact = maxHeight / LocalDensity.current.fontScale < UiSpace.compactHeight
         Column(verticalArrangement = Arrangement.spacedBy(UiSpace.gap)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(UiSpace.gap)) {
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary) {
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
                     Icon(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(UiSpace.brandIcon))
+                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(UiSpace.brandIcon))
                 }
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
-                    if (!compact) Text(stringResource(R.string.subtitle), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Text(stringResource(R.string.app_version, BuildConfig.VERSION_NAME),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
