@@ -46,16 +46,20 @@ private fun WorkoutScreen(repository: SettingsRepository, command: (String) -> U
     val state by WorkoutSession.state.collectAsStateWithLifecycle()
     val voice by WorkoutSession.voiceStatus.collectAsStateWithLifecycle()
     val editable = state.phase == Phase.READY || state.phase == Phase.DONE
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(Spacing.screen), verticalArrangement = Arrangement.spacedBy(Spacing.gap)) {
-        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
-        Text(stringResource(R.string.subtitle), style = MaterialTheme.typography.bodyLarge)
-        Text(stringResource(R.string.app_version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodySmall)
+    Column(
+        Modifier.fillMaxSize().safeDrawingPadding().imePadding()
+            .padding(horizontal = Spacing.screen, vertical = Spacing.gap),
+        verticalArrangement = Arrangement.spacedBy(Spacing.gap),
+    ) {
+        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
         Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(Spacing.section), verticalArrangement = Arrangement.spacedBy(Spacing.gap)) {
-                Text(stringResource(if (state.paused) R.string.paused else phaseLabel(state.phase)), style = MaterialTheme.typography.titleLarge)
-                Text(stringResource(R.string.seconds, if (state.phase == Phase.READY) config.workSeconds else state.remaining), style = MaterialTheme.typography.displayLarge)
-                Text(stringResource(R.string.set_progress, state.set, config.sets))
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.gap)) {
+            Row(Modifier.padding(Spacing.gap), horizontalArrangement = Arrangement.spacedBy(Spacing.gap)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.gap)) {
+                    Text(stringResource(if (state.paused) R.string.paused else phaseLabel(state.phase)), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.seconds, if (state.phase == Phase.READY) config.workSeconds else state.remaining), style = MaterialTheme.typography.headlineLarge)
+                    Text(stringResource(R.string.set_progress, state.set, config.sets))
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.gap)) {
                     Button(onClick = { command(if (editable) WorkoutService.START else if (state.paused) WorkoutService.RESUME else WorkoutService.PAUSE) }) {
                         Text(stringResource(if (editable) R.string.start else if (state.paused) R.string.resume else R.string.pause))
                     }
@@ -63,13 +67,21 @@ private fun WorkoutScreen(repository: SettingsRepository, command: (String) -> U
                 }
             }
         }
-        if (state.phase != Phase.READY) Text(stringResource(when (voice) {
-            VoiceStatus.LOADING -> R.string.tts_loading
-            VoiceStatus.READY -> R.string.tts_ready
-            VoiceStatus.ERROR -> R.string.tts_error
-        }), style = MaterialTheme.typography.bodySmall)
-        Text(stringResource(R.string.edit_hint), style = MaterialTheme.typography.bodySmall)
-        SettingsForm(config, editable) { repository.save(it); config = it }
+        Column(
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
+                .padding(bottom = Spacing.section),
+            verticalArrangement = Arrangement.spacedBy(Spacing.gap),
+        ) {
+            Text(stringResource(R.string.subtitle), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.app_version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodySmall)
+            if (state.phase != Phase.READY) Text(stringResource(when (voice) {
+                VoiceStatus.LOADING -> R.string.tts_loading
+                VoiceStatus.READY -> R.string.tts_ready
+                VoiceStatus.ERROR -> R.string.tts_error
+            }), style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.edit_hint), style = MaterialTheme.typography.bodySmall)
+            SettingsForm(config, editable) { repository.save(it); config = it }
+        }
     }
 }
 
