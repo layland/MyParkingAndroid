@@ -24,24 +24,22 @@ TTS는 기기의 한국어 음성 엔진을 사용합니다. 한국어 음성 �
 
 UI 문자열은 Android 리소스에, 정책 범위와 기본 수치는 이름 있는 상수에 분리했습니다.
 
-## GitHub Actions
+## GitHub 빌드 및 APK 다운로드
 
-`Android build` 워크플로는 단위 테스트, lint, debug 컴파일을 수행합니다.
-main 푸시 또는 수동 실행 시 검증 성공 후 release APK를 빌드하고 서명을 검증합니다.
-PR에서는 서명용 Secrets를 사용하지 않습니다.
+현재 서명 빌드는 `layland/MyParkingAndroid`의 `build/myexercise` 브랜치에서 기존 Android Secrets를 사용합니다.
+MyExercise 소스 저장소의 자체 서명 빌드는 동일한 Secrets를 등록한 후 사용할 수 있습니다.
 
-저장소의 **Settings → Secrets and variables → Actions**에 다음 Secrets가 필요합니다.
+- 테스트와 lint, 컴파일 통과 후 release APK를 빌드하고 서명을 검증합니다.
+- 서명 빌드 시 `myexercise-v1.0.N` 태그의 최대 N 다음 번호를 예약합니다. 실패나 재시도 시 번호가 건너뛸 수 있으며 기존 번호를 재사용하지 않습니다.
+- versionName은 `1.0.N`, versionCode는 `N+1`로 기존 첫 APK(versionCode 1) 위에 업데이트할 수 있습니다.
+- 앱 이름 아래 버전이 표시되며 `MyExercise-1.0.N.apk` 파일명과 APK 내부 버전이 일치하는지 CI에서 확인합니다.
+- APK는 ZIP artifact로 배포하지 않고 GitHub Release에 직접 게시합니다. 빌드 보고서는 별도 artifact입니다.
+- 주차앱과 구분된 태그를 사용하고 주차앱의 최신 Release 표시를 변경하지 않습니다.
 
-| Secret | 내용 |
-| --- | --- |
-| `ANDROID_KEYSTORE_BASE64` | 본인이 관리하는 release 키스토어의 Base64 값 |
-| `ANDROID_KEYSTORE_PASSWORD` | 키스토어 비밀번호 |
-| `ANDROID_KEY_ALIAS` | 서명 키 별칭 |
-| `ANDROID_KEY_PASSWORD` | 서명 키 비밀번호 |
+다운로드: https://github.com/layland/MyParkingAndroid/releases 에서 **MyExercise** Release의 `.apk` 파일을 선택하세요.
 
-키스토어와 비밀번호를 채팅이나 저장소에 올리지 마세요. 같은 앱의 업데이트에는 동일한 서명 키가 필요하므로 키를 안전하게 보관하세요.
-Secrets가 누락되면 release 작업은 명확하게 실패하고 서명되지 않은 APK를 배포하지 않습니다.
-성공한 실행의 **Artifacts → MyExercise-signed-apk**에서 APK를 내려받을 수 있습니다.
+GitHub Actions Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+서명 키는 저장소나 로그에 노출하지 않습니다. 앱 업데이트에는 같은 서명 키를 계속 사용해야 합니다.
 
 ## 개발 및 검증
 

@@ -7,8 +7,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: android-${{ github.ref }}
-  cancel-in-progress: true
+  group: myexercise-release
+  cancel-in-progress: false
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -24,6 +24,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+      - name: Test version allocation
+        run: python3 -m unittest discover -s scripts -p test_allocate_version.py
       - name: Test, lint and compile
         run: gradle --no-daemon testDebugUnitTest lintDebug assembleDebug
       - uses: actions/upload-artifact@v4
@@ -35,7 +37,11 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: validate
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 30
     env:
+      GH_TOKEN: ${{ github.token }}
       SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
@@ -67,18 +73,50 @@ jobs:
           done
           umask 077
           printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$SIGNING_STORE_FILE"
+      - name: Allocate next MyExercise version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin --tags
+          python3 scripts/allocate_version.py >> "$GITHUB_OUTPUT"
+          tag=$(python3 scripts/allocate_version.py --tag)
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$GITHUB_SHA" >/dev/null
       - name: Build signed release APK
-        run: gradle --no-daemon assembleRelease
+        env:
+          RELEASE_VERSION_NAME: ${{ steps.version.outputs.name }}
+          RELEASE_VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          gradle --no-daemon assembleRelease -PreleaseVersionName="$RELEASE_VERSION_NAME" -PreleaseVersionCode="$RELEASE_VERSION_CODE"
       - name: Verify APK signature
         shell: bash
         run: |
           set -euo pipefail
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
-      - uses: actions/upload-artifact@v4
-        with:
-          name: MyExercise-signed-apk
-          path: app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
+      - name: Check packaged version and name APK
+        env:
+          RELEASE_VERSION_NAME: ${{ steps.version.outputs.name }}
+          RELEASE_VERSION_CODE: ${{ steps.version.outputs.code }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" > "$RUNNER_TEMP/myexercise-badging.txt"
+          grep -F "versionName='$RELEASE_VERSION_NAME'" "$RUNNER_TEMP/myexercise-badging.txt"
+          grep -F "versionCode='$RELEASE_VERSION_CODE'" "$RUNNER_TEMP/myexercise-badging.txt"
+          grep -F "name='com.layland.myexercise'" "$RUNNER_TEMP/myexercise-badging.txt"
+          mkdir -p dist
+          cp "$apk" "dist/MyExercise-$RELEASE_VERSION_NAME.apk"
+      - name: Publish APK directly to GitHub Release
+        env:
+          RELEASE_VERSION_NAME: ${{ steps.version.outputs.name }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'MyExercise %s — signed Android APK\nCommit: %s\n' "$RELEASE_VERSION_NAME" "$GITHUB_SHA" > "$RUNNER_TEMP/myexercise-release-notes.txt"
+          gh release create "$RELEASE_TAG" "dist/MyExercise-$RELEASE_VERSION_NAME.apk" --verify-tag \
+            --title "MyExercise $RELEASE_VERSION_NAME" --notes-file "$RUNNER_TEMP/myexercise-release-notes.txt" --latest=false
       - name: Remove keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/release.jks"

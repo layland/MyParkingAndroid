@@ -49,6 +49,7 @@ private fun WorkoutScreen(repository: SettingsRepository, command: (String) -> U
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(Spacing.screen), verticalArrangement = Arrangement.spacedBy(Spacing.gap)) {
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
         Text(stringResource(R.string.subtitle), style = MaterialTheme.typography.bodyLarge)
+        Text(stringResource(R.string.app_version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodySmall)
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(Spacing.section), verticalArrangement = Arrangement.spacedBy(Spacing.gap)) {
                 Text(stringResource(if (state.paused) R.string.paused else phaseLabel(state.phase)), style = MaterialTheme.typography.titleLarge)

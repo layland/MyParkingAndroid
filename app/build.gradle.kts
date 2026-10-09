@@ -11,8 +11,9 @@ android {
         applicationId = "com.layland.myexercise"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = providers.gradleProperty("releaseVersionCode").orElse("1").get().toInt()
+        versionName = providers.gradleProperty("releaseVersionName")
+            .orElse(providers.gradleProperty("releaseVersionBase").map { "$it.0" }).get()
     }
     signingConfigs {
         if (signingPath != null) create("release") {
@@ -27,7 +28,7 @@ android {
             if (signingPath != null) signingConfig = signingConfigs.getByName("release")
         }
     }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
