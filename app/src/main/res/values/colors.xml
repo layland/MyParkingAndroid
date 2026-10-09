@@ -1,0 +1,5 @@
+<resources>
+    <color name="icon_mint_light">#45EEC0</color>
+    <color name="icon_mint_dark">#12B998</color>
+    <color name="icon_foreground">#FFFFFF</color>
+</resources>

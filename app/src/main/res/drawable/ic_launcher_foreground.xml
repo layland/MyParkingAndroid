@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Keep the stopwatch and voice waveform within the adaptive icon safe area. -->
+    <path android:fillColor="@color/icon_foreground"
+        android:pathData="M46,21 L62,21 Q65,21 65,24 L65,26 Q65,29 62,29 L58,29 L58,33 L50,33 L50,29 L46,29 Q43,29 43,26 L43,24 Q43,21 46,21 Z" />
+    <path android:fillColor="@color/icon_foreground"
+        android:pathData="M75,31 Q77,29 79,31 L83,35 Q85,37 83,39 L78,44 L70,36 Z" />
+    <path android:fillColor="@color/icon_foreground" android:fillType="evenOdd"
+        android:pathData="M54,32 A26,26 0,1 1,54,84 A26,26 0,1 1,54,32 Z M54,39 A19,19 0,1 0,54,77 A19,19 0,1 0,54,39 Z" />
+    <path android:fillColor="@android:color/transparent" android:strokeColor="@color/icon_foreground"
+        android:strokeWidth="3.5" android:strokeLineCap="round"
+        android:pathData="M41,56 L41,60 M47.5,51 L47.5,65 M54,46 L54,70 M60.5,51 L60.5,65 M67,56 L67,60" />
+</vector>
