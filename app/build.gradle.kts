@@ -1,66 +1,45 @@
 plugins {
-    alias(libs.plugins.android.application)
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
-
+val signingPath = providers.environmentVariable("SIGNING_STORE_FILE").orNull
 android {
-    namespace = "com.my.parking"
-    compileSdk {
-        version = release(37)
-    }
-
+    namespace = "com.layland.myexercise"
+    compileSdk = 35
     defaultConfig {
-        applicationId = "com.my.parking"
-        minSdk = 33
-        targetSdk = 37
+        applicationId = "com.layland.myexercise"
+        minSdk = 26
+        targetSdk = 35
         versionCode = 1
-        versionName = "1.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        versionName = "1.0.0"
     }
-
-    val releaseKeystorePath = System.getenv("MY_PARKING_KEYSTORE_PATH")
-    val releaseKeyAlias = System.getenv("MY_PARKING_KEY_ALIAS")
-    val releaseStorePassword = System.getenv("MY_PARKING_STORE_PASSWORD")
-    val releaseKeyPassword = System.getenv("MY_PARKING_KEY_PASSWORD")
-    val hasReleaseSigning = listOf(
-        releaseKeystorePath,
-        releaseKeyAlias,
-        releaseStorePassword,
-        releaseKeyPassword,
-    ).all { !it.isNullOrBlank() }
-
-    if (hasReleaseSigning) {
-        signingConfigs {
-            create("release") {
-                storeFile = file(requireNotNull(releaseKeystorePath))
-                storePassword = requireNotNull(releaseStorePassword)
-                keyAlias = requireNotNull(releaseKeyAlias)
-                keyPassword = requireNotNull(releaseKeyPassword)
-            }
+    signingConfigs {
+        if (signingPath != null) create("release") {
+            storeFile = file(signingPath)
+            storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+            keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+            keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
         }
     }
-
     buildTypes {
         release {
-            optimization {
-                enable = false
-            }
-            if (hasReleaseSigning) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            if (signingPath != null) signingConfig = signingConfigs.getByName("release")
         }
     }
+    buildFeatures { compose = true }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
+    kotlinOptions { jvmTarget = "17" }
 }
-
 dependencies {
-    implementation(libs.androidx.appcompat)
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.material)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.androidx.junit)
+    implementation(platform("androidx.compose:compose-bom:2025.04.01"))
+    implementation("androidx.activity:activity-compose:1.10.1")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    testImplementation("junit:junit:4.13.2")
 }
