@@ -31,7 +31,7 @@ import androidx.compose.ui.semantics.contentDescription
 
 @Composable
 internal fun SettingsPanel(config: WorkoutConfig, state: WorkoutState, voice: VoiceStatus,
-                           modifier: Modifier = Modifier, save: (WorkoutConfig) -> Unit) {
+                           modifier: Modifier = Modifier, validityChanged: (Boolean) -> Unit, save: (WorkoutConfig) -> Unit) {
     var mode by rememberSaveable { mutableStateOf(config.mode) }
     val breathing = mode == ExerciseMode.BREATHING
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -44,7 +44,6 @@ internal fun SettingsPanel(config: WorkoutConfig, state: WorkoutState, voice: Vo
     var restPhrase by rememberSaveable { mutableStateOf(config.restPhrase) }
     var finish by rememberSaveable { mutableStateOf(config.finishPhrase) }
     var encouragement by rememberSaveable { mutableStateOf(config.encouragePhrase) }
-    var message by remember { mutableIntStateOf(0) }
     val enabled = state.phase == Phase.READY || state.phase == Phase.DONE
     val focus = LocalFocusManager.current
     val defaultStart = stringResource(R.string.default_start)
@@ -58,6 +57,17 @@ internal fun SettingsPanel(config: WorkoutConfig, state: WorkoutState, voice: Vo
     val validSets = (sets.toIntOrNull() ?: -1) in 1..WorkoutConfig.MAX_SETS
     val validCountdown = (countdown.toIntOrNull() ?: -1) in 0..WorkoutConfig.MAX_COUNTDOWN
     val validEvery = (every.toIntOrNull() ?: -1) in 0..WorkoutConfig.MAX_SECONDS
+    // Persist in the input event, so an immediate Start reads the same configuration.
+    fun currentDraft() = WorkoutConfig(work.toIntOrNull() ?: -1, rest.toIntOrNull() ?: -1,
+        sets.toIntOrNull() ?: -1, countdown.toIntOrNull() ?: -1, every.toIntOrNull() ?: -1,
+        start, restPhrase, finish, encouragement, mode)
+    fun persistDraft() {
+        val candidate = currentDraft()
+        validityChanged(candidate.valid())
+        if (enabled && candidate.valid() && candidate != config) save(candidate)
+    }
+    // Also reconcile a draft restored after an Activity recreation.
+    SideEffect { persistDraft() }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(UiSpace.gap)) {
         Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
             .padding(UiSpace.segmentedPadding).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(UiSpace.small)) {
@@ -95,7 +105,7 @@ internal fun SettingsPanel(config: WorkoutConfig, state: WorkoutState, voice: Vo
                                     finish = if (presetBreathing) defaultBreathingFinish else defaultFinish
                                     countdown = WorkoutConfig.DEFAULT_COUNTDOWN.toString()
                                     every = WorkoutConfig.DEFAULT_ENCOURAGE.toString()
-                                    message = 0
+                                    persistDraft()
                                     focus.clearFocus()
                                 }
                             }, label = { Text(stringResource(if (choice == ExerciseMode.BREATHING) R.string.breathing_mode else R.string.standard_mode)) })
@@ -104,11 +114,11 @@ internal fun SettingsPanel(config: WorkoutConfig, state: WorkoutState, voice: Vo
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(UiSpace.cardRadius),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Column(Modifier.padding(horizontal = UiSpace.screen, vertical = UiSpace.small)) {
-                        NumericRow(if (breathing) R.string.inhale_duration else R.string.duration_work, null, work, enabled, validWork, icon = if (breathing) R.drawable.ic_inhale else R.drawable.ic_work) { work = it; message = 0 }
+                        NumericRow(if (breathing) R.string.inhale_duration else R.string.duration_work, null, work, enabled, validWork, icon = if (breathing) R.drawable.ic_inhale else R.drawable.ic_work) { work = it; persistDraft() }
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        NumericRow(if (breathing) R.string.exhale_duration else R.string.duration_rest, null, rest, enabled, validRest, icon = if (breathing) R.drawable.ic_exhale else R.drawable.ic_rest) { rest = it; message = 0 }
+                        NumericRow(if (breathing) R.string.exhale_duration else R.string.duration_rest, null, rest, enabled, validRest, icon = if (breathing) R.drawable.ic_exhale else R.drawable.ic_rest) { rest = it; persistDraft() }
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        NumericRow(if (breathing) R.string.repeat_count else R.string.sets, null, sets, enabled, validSets, if (breathing) R.string.unit_repeats else R.string.unit_sets, R.drawable.ic_repeat) { sets = it; message = 0 }
+                        NumericRow(if (breathing) R.string.repeat_count else R.string.sets, null, sets, enabled, validSets, if (breathing) R.string.unit_repeats else R.string.unit_sets, R.drawable.ic_repeat) { sets = it; persistDraft() }
                     }
                 }
                 if (breathing) Text(stringResource(R.string.breathing_count_help), style = MaterialTheme.typography.bodySmall,
@@ -118,15 +128,15 @@ internal fun SettingsPanel(config: WorkoutConfig, state: WorkoutState, voice: Vo
                     Text(stringResource(R.string.breathing_count_help), style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else SettingsCard(R.string.voice_timing, R.string.voice_timing_help) {
-                    NumericRow(R.string.countdown_short, R.string.countdown_help, countdown, enabled, validCountdown) { countdown = it; message = 0 }
+                    NumericRow(R.string.countdown_short, R.string.countdown_help, countdown, enabled, validCountdown) { countdown = it; persistDraft() }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    NumericRow(R.string.encourage_short, R.string.encourage_help, every, enabled, validEvery) { every = it; message = 0 }
+                    NumericRow(R.string.encourage_short, R.string.encourage_help, every, enabled, validEvery) { every = it; persistDraft() }
                 }
                 SettingsCard(R.string.voice_settings, R.string.phrases_help) {
-                    PhraseField(if (breathing) R.string.inhale_phrase else R.string.start_phrase, start, enabled) { start = it; message = 0 }
-                    PhraseField(if (breathing) R.string.exhale_phrase else R.string.rest_phrase, restPhrase, enabled) { restPhrase = it; message = 0 }
-                    if (!breathing) PhraseField(R.string.encourage_phrase, encouragement, enabled) { encouragement = it; message = 0 }
-                    PhraseField(R.string.finish_phrase, finish, enabled) { finish = it; message = 0 }
+                    PhraseField(if (breathing) R.string.inhale_phrase else R.string.start_phrase, start, enabled) { start = it; persistDraft() }
+                    PhraseField(if (breathing) R.string.exhale_phrase else R.string.rest_phrase, restPhrase, enabled) { restPhrase = it; persistDraft() }
+                    if (!breathing) PhraseField(R.string.encourage_phrase, encouragement, enabled) { encouragement = it; persistDraft() }
+                    PhraseField(R.string.finish_phrase, finish, enabled) { finish = it; persistDraft() }
                 }
                 if (state.phase != Phase.READY && voice != VoiceStatus.ERROR) Text(stringResource(when (voice) {
                     VoiceStatus.LOADING -> R.string.tts_loading
@@ -134,16 +144,10 @@ internal fun SettingsPanel(config: WorkoutConfig, state: WorkoutState, voice: Vo
                     VoiceStatus.ERROR -> R.string.tts_error
                 }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (message != 0) Text(stringResource(message), style = MaterialTheme.typography.bodySmall,
-                color = if (message == R.string.invalid || message == R.string.breathing_invalid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
-            OutlinedButton(enabled = enabled, onClick = {
-                val candidate = WorkoutConfig(work.toIntOrNull() ?: -1, rest.toIntOrNull() ?: -1, sets.toIntOrNull() ?: -1,
-                    countdown.toIntOrNull() ?: -1, every.toIntOrNull() ?: -1, start, restPhrase, finish, encouragement, mode)
-                if (candidate.valid()) { save(candidate); focus.clearFocus(); message = R.string.saved }
-                else message = if (breathing) R.string.breathing_invalid else R.string.invalid
-            }, modifier = Modifier.fillMaxWidth().heightIn(min = UiSpace.buttonHeight), shape = CircleShape) {
-                Text(stringResource(R.string.save))
-            }
+            Text(stringResource(if (currentDraft().valid()) R.string.auto_saved
+                else if (breathing) R.string.breathing_invalid else R.string.invalid),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (currentDraft().valid()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
             if (selectedTab == 0) Text(stringResource(if (config.mode == ExerciseMode.BREATHING) R.string.breathing_summary else R.string.workout_summary, config.workSeconds, config.restSeconds, config.sets),
                 modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

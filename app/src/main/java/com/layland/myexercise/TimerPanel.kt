@@ -16,7 +16,7 @@ private const val SECONDS_PER_MINUTE = 60
 
 @Composable
 internal fun TimerPanel(config: WorkoutConfig, state: WorkoutState, command: (String) -> Unit,
-                        compact: Boolean, modifier: Modifier = Modifier) {
+                        compact: Boolean, modifier: Modifier = Modifier, canStart: Boolean = true) {
     val editable = state.phase == Phase.READY || state.phase == Phase.DONE
     val rest = state.phase == Phase.REST
     val accent = if (rest) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
@@ -69,7 +69,7 @@ internal fun TimerPanel(config: WorkoutConfig, state: WorkoutState, command: (St
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(UiSpace.gap),
             verticalAlignment = Alignment.CenterVertically) {
-            Button(onClick = { command(if (editable) WorkoutService.START else if (state.paused) WorkoutService.RESUME else WorkoutService.PAUSE) },
+            Button(enabled = !editable || canStart, onClick = { command(if (editable) WorkoutService.START else if (state.paused) WorkoutService.RESUME else WorkoutService.PAUSE) },
                 modifier = Modifier.weight(1f).heightIn(min = UiSpace.buttonHeight), shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(containerColor = accent)) {
                 Icon(painterResource(if (!editable && !state.paused) R.drawable.ic_pause else R.drawable.ic_play),

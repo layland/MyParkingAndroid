@@ -46,6 +46,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun WorkoutScreen(repository: SettingsRepository, command: (String) -> Unit) {
     var config by remember { mutableStateOf(repository.load()) }
+    var settingsValid by remember { mutableStateOf(true) }
+    val dispatch: (String) -> Unit = { action ->
+        if (action != WorkoutService.START || settingsValid) command(action)
+    }
     val state by WorkoutSession.state.collectAsStateWithLifecycle()
     val voice by WorkoutSession.voiceStatus.collectAsStateWithLifecycle()
     BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(UiSpace.screen)) {
@@ -65,12 +69,12 @@ private fun WorkoutScreen(repository: SettingsRepository, command: (String) -> U
             }
             if (wide) {
                 Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(UiSpace.section)) {
-                    TimerPanel(config, state, command, compact, Modifier.weight(1f))
-                    SettingsPanel(config, state, voice, Modifier.weight(1f).fillMaxHeight()) { repository.save(it); config = it }
+                    TimerPanel(config, state, dispatch, compact, Modifier.weight(1f), settingsValid)
+                    SettingsPanel(config, state, voice, Modifier.weight(1f).fillMaxHeight(), validityChanged = { settingsValid = it }) { repository.save(it); config = it }
                 }
             } else {
-                TimerPanel(config, state, command, compact)
-                SettingsPanel(config, state, voice, Modifier.weight(1f)) { repository.save(it); config = it }
+                TimerPanel(config, state, dispatch, compact, canStart = settingsValid)
+                SettingsPanel(config, state, voice, Modifier.weight(1f), validityChanged = { settingsValid = it }) { repository.save(it); config = it }
             }
         }
     }
