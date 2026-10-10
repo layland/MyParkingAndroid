@@ -19,6 +19,8 @@ class WorkoutService : Service() {
     private lateinit var speech: SpeechCoach
     private lateinit var engine: WorkoutEngine
     private lateinit var countWords: KoreanCountWords
+    private lateinit var ordinalWords: KoreanOrdinalWords
+    private var announcedSet = 0
     private var ticker: Job? = null
     private var breathing: BreathingSession? = null
     private var wakeLock: PowerManager.WakeLock? = null
@@ -31,6 +33,9 @@ class WorkoutService : Service() {
         countWords = KoreanCountWords(resources.getStringArray(R.array.count_ones).toList(),
             resources.getStringArray(R.array.count_tens).toList(), resources.getStringArray(R.array.count_prefixes).toList(),
             getString(R.string.count_hundred), getString(R.string.count_thousand))
+        ordinalWords = KoreanOrdinalWords(getString(R.string.ordinal_first),
+            resources.getStringArray(R.array.ordinal_ones).toList(), resources.getStringArray(R.array.count_tens).toList(),
+            getString(R.string.ordinal_twenty), getString(R.string.count_hundred))
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, getString(R.string.notification_channel), NotificationManager.IMPORTANCE_LOW)
         )
@@ -41,14 +46,14 @@ class WorkoutService : Service() {
                 if (engine.state.phase == Phase.READY || engine.state.phase == Phase.DONE) {
                     engine = WorkoutEngine(PreferencesSettings(this).load())
                     engine.start()
+                    announcedSet = 0
                     breathing = if (engine.config.mode == ExerciseMode.BREATHING) BreathingSession(
                         engine, speech, countWords::format, SystemClock::elapsedRealtime,
-                        { deadline -> delay((deadline - SystemClock.elapsedRealtime()).coerceAtLeast(0L)) }, ::publish,
+                        { deadline -> delay((deadline - SystemClock.elapsedRealtime()).coerceAtLeast(0L)) }, ::publish, ::roundAnnouncement,
                     ) else null
                     startForeground(NOTIFICATION_ID, notification())
                     acquireWakeLock()
                     publish()
-                    if (breathing == null) speech.speak(engine.config.startPhrase)
                     launchTicker()
                 }
             }
@@ -77,12 +82,20 @@ class WorkoutService : Service() {
                 return@launch
             }
             while (isActive && engine.state.phase != Phase.DONE) {
+                if (engine.state.phase == Phase.WORK && announcedSet != engine.state.set) {
+                    speech.playAndWait(getString(R.string.round_start_instruction,
+                        roundAnnouncement(engine.state.set), engine.config.startPhrase))
+                    announcedSet = engine.state.set
+                    nextTick = SystemClock.elapsedRealtime() + WorkoutTiming.TICK_MS
+                }
                 delay((nextTick - SystemClock.elapsedRealtime()).coerceAtLeast(0))
                 val before = engine.state
                 val after = engine.tick()
                 nextTick += WorkoutTiming.TICK_MS
                 publish()
                 voiceCues(engine.config, before, after).forEach { cue ->
+                    // The next loop awaits the round and work instruction before its first tick.
+                    if (after.phase == Phase.WORK && after.set != before.set && cue is VoiceCue.Phrase) return@forEach
                     val text = when (cue) {
                         is VoiceCue.Phrase -> cue.text
                         is VoiceCue.Count -> countWords.format(cue.number)
@@ -95,6 +108,10 @@ class WorkoutService : Service() {
             // Keep the service alive until reset or restart so the final TTS can finish.
         }
     }
+    private fun roundAnnouncement(set: Int) = getString(
+        if (engine.config.mode == ExerciseMode.BREATHING) R.string.round_breathing else R.string.round_workout,
+        ordinalWords.format(set),
+    )
     private fun publish() {
         WorkoutSession.current.value = engine.state
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
@@ -118,7 +135,7 @@ class WorkoutService : Service() {
         if (wakeLock?.isHeld == true) return
         wakeLock = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_TAG)
         val maximumMs = ((engine.config.workSeconds.toLong() + engine.config.restSeconds) * WorkoutTiming.TICK_MS +
-            2 * SpeechTiming.PLAYBACK_TIMEOUT_MS) * engine.config.sets + WAKE_MARGIN_MS
+            ROUND_INSTRUCTION_REQUESTS * SpeechTiming.PLAYBACK_TIMEOUT_MS) * engine.config.sets + WAKE_MARGIN_MS
         wakeLock?.acquire(maximumMs)
     }
     private fun releaseWakeLock() { if (wakeLock?.isHeld == true) wakeLock?.release(); wakeLock = null }
@@ -135,6 +152,7 @@ class WorkoutService : Service() {
         const val RESET = "com.layland.myexercise.RESET"
         private const val CHANNEL = "workout_timer"
         private const val NOTIFICATION_ID = 1
+        private const val ROUND_INSTRUCTION_REQUESTS = 3
         private const val WAKE_MARGIN_MS = 60_000L
         private const val WAKE_TAG = "MyExercise:Timer"
     }

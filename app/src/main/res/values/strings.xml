@@ -68,11 +68,20 @@
     <string name="default_inhale">들이마시세요.</string>
     <string name="default_exhale">내쉬세요.</string>
     <string name="default_breathing_finish">호흡 운동을 마쳤습니다.</string>
-    <string name="breathing_count_help">안내 멘트가 끝난 뒤 타이머가 시작되고, 1초마다 하나, 둘, 셋…부터 셉니다. 마지막 내쉬기까지 진행합니다. 모드를 바꾸면 기본 시간과 멘트를 불러오고 바로 적용됩니다.</string>
+    <string name="breathing_count_help">반복 순서와 안내 멘트가 끝난 뒤 타이머가 시작되고, 1초마다 하나, 둘, 셋…부터 셉니다. 마지막 내쉬기까지 진행합니다. 모드를 바꾸면 기본 시간과 멘트를 불러오고 바로 적용됩니다.</string>
     <string name="breathing_progress">%1$d / %2$d 회</string>
     <string name="breathing_summary">들이마시기 %1$d초 · 내쉬기 %2$d초 · %3$d회</string>
     <string name="breathing_notification_status">%1$s · %2$d회 · %3$d초 남음</string>
     <string name="breathing_invalid">들이마시기·내쉬기 1~3600초, 반복 1~100회로 입력하세요.</string>
+    <string name="round_workout">%1$s 번째 세트</string>
+    <string name="round_breathing">%1$s 번째 반복</string>
+    <string name="round_start_instruction">%1$s. %2$s</string>
+    <string name="ordinal_first">첫</string>
+    <string name="ordinal_twenty">스무</string>
+    <string-array name="ordinal_ones">
+        <item>""</item><item>한</item><item>두</item><item>세</item><item>네</item><item>다섯</item>
+        <item>여섯</item><item>일곱</item><item>여덟</item><item>아홉</item>
+    </string-array>
     <string name="count_hundred">백</string>
     <string name="count_thousand">천</string>
     <string-array name="count_ones">

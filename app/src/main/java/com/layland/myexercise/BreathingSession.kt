@@ -8,6 +8,7 @@ internal class BreathingSession(
     private val now: () -> Long,
     private val waitUntil: suspend (Long) -> Unit,
     private val publish: () -> Unit,
+    private val roundAnnouncement: (Int) -> String,
 ) {
     private var announced = false
     suspend fun run() {
@@ -15,6 +16,10 @@ internal class BreathingSession(
             val phase = engine.state.phase
             val set = engine.state.set
             if (!announced) {
+                if (phase == Phase.WORK) {
+                    val announcement = roundAnnouncement(set)
+                    if (announcement.isNotBlank()) speech.playAndWait(announcement)
+                }
                 speech.playAndWait(if (phase == Phase.WORK) engine.config.startPhrase else engine.config.restPhrase)
                 announced = true
             }

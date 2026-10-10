@@ -57,3 +57,27 @@ internal class KoreanCountWords(
         private const val THOUSAND = 1000
     }
 }
+
+/** Korean ordinal determiners, supplied by resources, for the supported set range. */
+internal class KoreanOrdinalWords(
+    private val first: String,
+    private val ones: List<String>,
+    private val tens: List<String>,
+    private val twenty: String,
+    private val hundred: String,
+) {
+    fun format(number: Int): String {
+        require(number in 1..WorkoutConfig.MAX_SETS)
+        return when (number) {
+            1 -> first
+            HUNDRED -> hundred
+            TWENTY -> twenty
+            else -> tens[number / TEN] + ones[number % TEN]
+        }
+    }
+    private companion object {
+        const val TEN = 10
+        const val TWENTY = 20
+        const val HUNDRED = 100
+    }
+}

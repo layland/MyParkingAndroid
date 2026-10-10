@@ -7,8 +7,8 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BreathingSessionTest {
-    private fun engine(work: Int = 5, rest: Int = 10) = WorkoutEngine(WorkoutConfig(
-        workSeconds = work, restSeconds = rest, sets = 1,
+    private fun engine(work: Int = 5, rest: Int = 10, sets: Int = 1) = WorkoutEngine(WorkoutConfig(
+        workSeconds = work, restSeconds = rest, sets = sets,
         startPhrase = "inhale", restPhrase = "exhale", finishPhrase = "finish", encouragePhrase = "",
         mode = ExerciseMode.BREATHING,
     )).also { it.start() }
@@ -21,9 +21,9 @@ class BreathingSessionTest {
         override fun stop() { requests.forEach { it.done.complete(false) } }
         override fun close() = stop()
     }
-    private fun TestScope.session(engine: WorkoutEngine, speech: SpeechCoach) = BreathingSession(
+    private fun TestScope.session(engine: WorkoutEngine, speech: SpeechCoach, round: (Int) -> String = { "" }) = BreathingSession(
         engine, speech, { it.toString() }, { testScheduler.currentTime },
-        { deadline -> delay((deadline - testScheduler.currentTime).coerceAtLeast(0L)) }, {},
+        { deadline -> delay((deadline - testScheduler.currentTime).coerceAtLeast(0L)) }, {}, round,
     )
     @Test fun timeAndCountsWaitForActualInstructionCompletion() = runTest {
         val engine = engine(); val speech = FakeSpeech(); val session = session(engine, speech)
@@ -84,6 +84,32 @@ class BreathingSessionTest {
         assertEquals(listOf("inhale", "1", "2"), speech.requests.map { it.text })
         assertEquals(3, engine.state.remaining)
         resumed.cancelAndJoin(); speech.stop()
+    }
+    @Test fun eachRoundIsAnnouncedOnceBeforeInhaleAndTimer() = runTest {
+        val engine = engine(work = 1, rest = 1, sets = 2)
+        val speech = FakeSpeech()
+        val job = launch { session(engine, speech) { "round $it" }.run() }
+        runCurrent()
+        assertEquals(listOf("round 1"), speech.requests.map { it.text })
+        advanceTimeBy(5000); runCurrent()
+        assertEquals(1, engine.state.remaining)
+        speech.finishLatest(); runCurrent()
+        assertEquals("inhale", speech.requests.last().text)
+        advanceTimeBy(5000); runCurrent()
+        assertEquals(1, engine.state.remaining)
+        speech.finishLatest(); runCurrent()
+        advanceTimeBy(1000); runCurrent()
+        speech.finishLatest(); runCurrent() // Final inhale number -> exhale, without round announcement.
+        speech.finishLatest(); runCurrent()
+        advanceTimeBy(1000); runCurrent()
+        assertEquals(listOf("round 1", "inhale", "1", "exhale", "1"), speech.requests.map { it.text })
+        speech.finishLatest(); runCurrent()
+        assertEquals("round 2", speech.requests.last().text)
+        advanceTimeBy(5000); runCurrent()
+        assertEquals(1, engine.state.remaining)
+        speech.finishLatest(); runCurrent()
+        assertEquals("inhale", speech.requests.last().text)
+        job.cancelAndJoin(); speech.stop()
     }
     @Test fun unavailableSpeechDoesNotHangTheTimer() = runTest {
         val speech = object : SpeechCoach {
