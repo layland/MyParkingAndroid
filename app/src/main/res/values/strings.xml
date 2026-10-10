@@ -56,4 +56,36 @@
     <string name="encourage_help">운동 중 이 간격으로 응원해요.</string>
     <string name="phrases_help">빈 멘트는 읽지 않아요. 저장 후 다음 운동에 적용돼요.</string>
     <string name="workout_summary">운동 %1$d초 · 휴식 %2$d초 · %3$d세트</string>
+    <string name="standard_mode">일반 운동</string>
+    <string name="breathing_mode">호흡 운동</string>
+    <string name="inhale">들이마시기</string>
+    <string name="exhale">내쉬기</string>
+    <string name="inhale_duration">들이마시기 시간</string>
+    <string name="exhale_duration">내쉬기 시간</string>
+    <string name="repeat_count">반복 횟수</string>
+    <string name="unit_repeats">회</string>
+    <string name="inhale_phrase">들이마시기 멘트</string>
+    <string name="exhale_phrase">내쉬기 멘트</string>
+    <string name="default_inhale">들이마시세요.</string>
+    <string name="default_exhale">내쉬세요.</string>
+    <string name="default_breathing_finish">호흡 운동을 마쳤습니다.</string>
+    <string name="breathing_count_help">각 구간마다 1초 간격으로 하나, 둘, 셋…부터 셉니다. 마지막 내쉬기까지 진행합니다. 모드를 바꾸면 기본 시간과 멘트를 불러오며, 저장 후 적용됩니다.</string>
+    <string name="breathing_progress">%1$d / %2$d 회</string>
+    <string name="breathing_summary">들이마시기 %1$d초 · 내쉬기 %2$d초 · %3$d회</string>
+    <string name="breathing_notification_status">%1$s · %2$d회 · %3$d초 남음</string>
+    <string name="breathing_invalid">들이마시기·내쉬기 1~3600초, 반복 1~100회로 입력하세요.</string>
+    <string name="count_hundred">백</string>
+    <string name="count_thousand">천</string>
+    <string-array name="count_ones">
+        <item>""</item><item>하나</item><item>둘</item><item>셋</item><item>넷</item><item>다섯</item>
+        <item>여섯</item><item>일곱</item><item>여덟</item><item>아홉</item>
+    </string-array>
+    <string-array name="count_tens">
+        <item>""</item><item>열</item><item>스물</item><item>서른</item><item>마흔</item><item>쉰</item>
+        <item>예순</item><item>일흔</item><item>여든</item><item>아흔</item>
+    </string-array>
+    <string-array name="count_prefixes">
+        <item>""</item><item>""</item><item>이</item><item>삼</item><item>사</item><item>오</item>
+        <item>육</item><item>칠</item><item>팔</item><item>구</item>
+    </string-array>
 </resources>

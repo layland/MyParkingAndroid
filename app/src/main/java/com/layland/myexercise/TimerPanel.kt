@@ -33,7 +33,7 @@ internal fun TimerPanel(config: WorkoutConfig, state: WorkoutState, command: (St
     val clock = stringResource(R.string.timer_clock, remaining / SECONDS_PER_MINUTE, remaining % SECONDS_PER_MINUTE)
     val phase: @Composable () -> Unit = {
         Surface(color = container, contentColor = foreground, shape = CircleShape) {
-            Text(stringResource(if (state.paused) R.string.paused else phaseLabel(state.phase)),
+            Text(stringResource(if (state.paused) R.string.paused else phaseLabel(state.phase, config.mode)),
                 Modifier.padding(horizontal = UiSpace.section, vertical = UiSpace.small),
                 style = MaterialTheme.typography.labelLarge)
         }
@@ -45,7 +45,7 @@ internal fun TimerPanel(config: WorkoutConfig, state: WorkoutState, command: (St
                 horizontalArrangement = Arrangement.spacedBy(UiSpace.gap)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(UiSpace.small)) {
                     phase()
-                    Text(stringResource(R.string.set_progress, state.set, config.sets),
+                    Text(stringResource(if (config.mode == ExerciseMode.BREATHING) R.string.breathing_progress else R.string.set_progress, state.set, config.sets),
                         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Text(clock, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
@@ -61,7 +61,7 @@ internal fun TimerPanel(config: WorkoutConfig, state: WorkoutState, command: (St
                         phase()
                         Text(clock, fontSize = UiSpace.timerText, fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface)
-                        Text(stringResource(R.string.set_progress, state.set, config.sets),
+                        Text(stringResource(if (config.mode == ExerciseMode.BREATHING) R.string.breathing_progress else R.string.set_progress, state.set, config.sets),
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

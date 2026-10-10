@@ -10,10 +10,13 @@ data class WorkoutConfig(
     val restPhrase: String,
     val finishPhrase: String,
     val encouragePhrase: String,
+    val mode: ExerciseMode = ExerciseMode.STANDARD,
 ) {
-    fun valid() = workSeconds in 1..MAX_SECONDS && restSeconds in 0..MAX_SECONDS &&
+    fun valid() = workSeconds in 1..MAX_SECONDS && restSeconds in (if (mode == ExerciseMode.BREATHING) 1 else 0)..MAX_SECONDS &&
         sets in 1..MAX_SETS && countdownSeconds in 0..MAX_COUNTDOWN && encourageEvery in 0..MAX_SECONDS
     companion object {
+        const val DEFAULT_INHALE = 5
+        const val DEFAULT_EXHALE = 10
         const val DEFAULT_WORK = 30
         const val DEFAULT_REST = 15
         const val DEFAULT_SETS = 3
@@ -24,6 +27,8 @@ data class WorkoutConfig(
         const val MAX_COUNTDOWN = 60
     }
 }
+
+enum class ExerciseMode { STANDARD, BREATHING }
 
 enum class Phase { READY, WORK, REST, DONE }
 data class WorkoutState(val phase: Phase = Phase.READY, val set: Int = 1, val remaining: Int = 0, val paused: Boolean = false)
@@ -40,8 +45,9 @@ class WorkoutEngine(val config: WorkoutConfig) {
     fun tick(): WorkoutState {
         if (state.paused || state.phase == Phase.READY || state.phase == Phase.DONE) return state
         state = if (state.remaining > 1) state.copy(remaining = state.remaining - 1) else when {
-            state.phase == Phase.WORK && state.set == config.sets -> state.copy(phase = Phase.DONE, remaining = 0)
+            state.phase == Phase.WORK && state.set == config.sets && config.mode == ExerciseMode.STANDARD -> state.copy(phase = Phase.DONE, remaining = 0)
             state.phase == Phase.WORK && config.restSeconds > 0 -> state.copy(phase = Phase.REST, remaining = config.restSeconds)
+            state.phase == Phase.REST && state.set == config.sets -> state.copy(phase = Phase.DONE, remaining = 0)
             else -> WorkoutState(Phase.WORK, state.set + 1, config.workSeconds)
         }
         return state

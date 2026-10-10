@@ -18,6 +18,7 @@ class WorkoutService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var speech: SpeechCoach
     private lateinit var engine: WorkoutEngine
+    private lateinit var countWords: KoreanCountWords
     private var ticker: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var nextTick = 0L
@@ -26,6 +27,9 @@ class WorkoutService : Service() {
         super.onCreate()
         engine = WorkoutEngine(PreferencesSettings(this).load())
         speech = AndroidSpeechCoach(this)
+        countWords = KoreanCountWords(resources.getStringArray(R.array.count_ones).toList(),
+            resources.getStringArray(R.array.count_tens).toList(), resources.getStringArray(R.array.count_prefixes).toList(),
+            getString(R.string.count_hundred), getString(R.string.count_thousand))
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, getString(R.string.notification_channel), NotificationManager.IMPORTANCE_LOW)
         )
@@ -67,18 +71,14 @@ class WorkoutService : Service() {
                 val after = engine.tick()
                 nextTick += TICK_MS
                 publish()
-                if (after.phase != before.phase || after.set != before.set) {
-                    speech.speak(when (after.phase) {
-                        Phase.WORK -> engine.config.startPhrase
-                        Phase.REST -> engine.config.restPhrase
-                        Phase.DONE -> engine.config.finishPhrase
-                        Phase.READY -> ""
-                    })
-                } else if (after.remaining in 1..engine.config.countdownSeconds) {
-                    speech.speak(getString(R.string.seconds, after.remaining))
-                } else if (after.phase == Phase.WORK && engine.config.encourageEvery > 0 &&
-                    (engine.config.workSeconds - after.remaining) % engine.config.encourageEvery == 0) {
-                    speech.speak(engine.config.encouragePhrase)
+                val enqueue = engine.config.mode == ExerciseMode.BREATHING
+                voiceCues(engine.config, before, after).forEach { cue ->
+                    val text = when (cue) {
+                        is VoiceCue.Phrase -> cue.text
+                        is VoiceCue.Count -> countWords.format(cue.number)
+                        is VoiceCue.Remaining -> getString(R.string.seconds, cue.seconds)
+                    }
+                    speech.speak(text, enqueue)
                 }
             }
             releaseWakeLock()
@@ -96,10 +96,10 @@ class WorkoutService : Service() {
         val activity = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val reset = PendingIntent.getService(this, 1, Intent(this, WorkoutService::class.java).setAction(RESET), PendingIntent.FLAG_IMMUTABLE)
         val state = engine.state
-        val phase = getString(if (state.paused) R.string.paused else phaseLabel(state.phase))
+        val phase = getString(if (state.paused) R.string.paused else phaseLabel(state.phase, engine.config.mode))
         return Notification.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(getString(R.string.app_name))
-            .setContentText(getString(R.string.notification_status, phase, state.set, state.remaining))
+            .setContentText(getString(if (engine.config.mode == ExerciseMode.BREATHING) R.string.breathing_notification_status else R.string.notification_status, phase, state.set, state.remaining))
             .setContentIntent(activity).setOnlyAlertOnce(true)
             .setOngoing(state.phase != Phase.DONE)
             .addAction(Notification.Action.Builder(null, getString(R.string.reset), reset).build()).build()
@@ -130,9 +130,9 @@ class WorkoutService : Service() {
     }
 }
 
-fun phaseLabel(phase: Phase) = when (phase) {
+fun phaseLabel(phase: Phase, mode: ExerciseMode = ExerciseMode.STANDARD) = when (phase) {
     Phase.READY -> R.string.ready
-    Phase.WORK -> R.string.work
-    Phase.REST -> R.string.rest
+    Phase.WORK -> if (mode == ExerciseMode.BREATHING) R.string.inhale else R.string.work
+    Phase.REST -> if (mode == ExerciseMode.BREATHING) R.string.exhale else R.string.rest
     Phase.DONE -> R.string.done
 }
