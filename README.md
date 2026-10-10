@@ -26,7 +26,7 @@ UI 문자열은 Android 리소스에, 정책 범위와 기본 수치는 이름 �
 
 ## GitHub 빌드 및 APK 다운로드
 
-현재 서명 빌드는 `layland/MyParkingAndroid`의 `build/myexercise` 브랜치에서 기존 Android Secrets를 사용합니다.
+현재 서명 빌드는 `layland/MyParkingAndroid`의 `build/myexercise` 브랜치에서 기존 Android Secrets를 사용합니다. 최종 APK 다운로드 위치는 `layland/MyExercise`의 Releases입니다. MyExercise의 `Publish MyExercise APK` 워크플로가 빌드 저장소의 원본 APK를 내려받아 SHA-256·서명·내부 버전을 검사한 뒤 그대로 게시합니다. 새 서명이나 재빌드는 하지 않습니다. 이 워크플로는 수동 실행과 15분 간격 예약 실행을 지원하며, 이미 게시한 버전은 건너뜁니다. GitHub 예약 실행은 지연될 수 있으므로 빌드 완료 후 즉시 게시하려면 수동 실행을 사용합니다.
 MyExercise 소스 저장소의 자체 서명 빌드는 동일한 Secrets를 등록한 후 사용할 수 있습니다.
 
 - 테스트와 lint, 컴파일 통과 후 release APK를 빌드하고 서명을 검증합니다.
@@ -36,7 +36,7 @@ MyExercise 소스 저장소의 자체 서명 빌드는 동일한 Secrets를 등�
 - APK는 ZIP artifact로 배포하지 않고 GitHub Release에 직접 게시합니다. 빌드 보고서는 별도 artifact입니다.
 - 주차앱과 구분된 태그를 사용하고 주차앱의 최신 Release 표시를 변경하지 않습니다.
 
-다운로드: https://github.com/layland/MyParkingAndroid/releases 에서 **MyExercise** Release의 `.apk` 파일을 선택하세요.
+다운로드: https://github.com/layland/MyExercise/releases 에서 **MyExercise** Release의 `.apk` 파일을 선택하세요.
 
 GitHub Actions Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
 서명 키는 저장소나 로그에 노출하지 않습니다. 앱 업데이트에는 같은 서명 키를 계속 사용해야 합니다.
