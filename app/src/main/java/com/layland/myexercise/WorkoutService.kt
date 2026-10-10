@@ -20,6 +20,7 @@ class WorkoutService : Service() {
     private lateinit var engine: WorkoutEngine
     private lateinit var countWords: KoreanCountWords
     private var ticker: Job? = null
+    private var breathing: BreathingSession? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var nextTick = 0L
 
@@ -40,10 +41,14 @@ class WorkoutService : Service() {
                 if (engine.state.phase == Phase.READY || engine.state.phase == Phase.DONE) {
                     engine = WorkoutEngine(PreferencesSettings(this).load())
                     engine.start()
+                    breathing = if (engine.config.mode == ExerciseMode.BREATHING) BreathingSession(
+                        engine, speech, countWords::format, SystemClock::elapsedRealtime,
+                        { deadline -> delay((deadline - SystemClock.elapsedRealtime()).coerceAtLeast(0L)) }, ::publish,
+                    ) else null
                     startForeground(NOTIFICATION_ID, notification())
                     acquireWakeLock()
                     publish()
-                    speech.speak(engine.config.startPhrase)
+                    if (breathing == null) speech.speak(engine.config.startPhrase)
                     launchTicker()
                 }
             }
@@ -63,22 +68,27 @@ class WorkoutService : Service() {
     }
     private fun launchTicker() {
         ticker?.cancel()
-        nextTick = SystemClock.elapsedRealtime() + TICK_MS
+        nextTick = SystemClock.elapsedRealtime() + WorkoutTiming.TICK_MS
         ticker = scope.launch {
+            val session = breathing
+            if (session != null) {
+                session.run()
+                releaseWakeLock()
+                return@launch
+            }
             while (isActive && engine.state.phase != Phase.DONE) {
                 delay((nextTick - SystemClock.elapsedRealtime()).coerceAtLeast(0))
                 val before = engine.state
                 val after = engine.tick()
-                nextTick += TICK_MS
+                nextTick += WorkoutTiming.TICK_MS
                 publish()
-                val enqueue = engine.config.mode == ExerciseMode.BREATHING
                 voiceCues(engine.config, before, after).forEach { cue ->
                     val text = when (cue) {
                         is VoiceCue.Phrase -> cue.text
                         is VoiceCue.Count -> countWords.format(cue.number)
                         is VoiceCue.Remaining -> getString(R.string.seconds, cue.seconds)
                     }
-                    speech.speak(text, enqueue)
+                    speech.speak(text)
                 }
             }
             releaseWakeLock()
@@ -107,7 +117,8 @@ class WorkoutService : Service() {
     private fun acquireWakeLock() {
         if (wakeLock?.isHeld == true) return
         wakeLock = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_TAG)
-        val maximumMs = (engine.config.workSeconds.toLong() + engine.config.restSeconds) * engine.config.sets * TICK_MS + WAKE_MARGIN_MS
+        val maximumMs = ((engine.config.workSeconds.toLong() + engine.config.restSeconds) * WorkoutTiming.TICK_MS +
+            2 * SpeechTiming.PLAYBACK_TIMEOUT_MS) * engine.config.sets + WAKE_MARGIN_MS
         wakeLock?.acquire(maximumMs)
     }
     private fun releaseWakeLock() { if (wakeLock?.isHeld == true) wakeLock?.release(); wakeLock = null }
@@ -124,7 +135,6 @@ class WorkoutService : Service() {
         const val RESET = "com.layland.myexercise.RESET"
         private const val CHANNEL = "workout_timer"
         private const val NOTIFICATION_ID = 1
-        private const val TICK_MS = 1000L
         private const val WAKE_MARGIN_MS = 60_000L
         private const val WAKE_TAG = "MyExercise:Timer"
     }

@@ -76,6 +76,8 @@ internal fun SettingsPanel(config: WorkoutConfig, state: WorkoutState, voice: Vo
         val scrollState = key(selectedTab) { rememberScrollState() }
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scrollState).padding(bottom = UiSpace.gap),
             verticalArrangement = Arrangement.spacedBy(UiSpace.gap)) {
+            if (voice == VoiceStatus.ERROR) Text(stringResource(R.string.tts_error), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error)
             if (!enabled) Text(stringResource(R.string.edit_hint), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (selectedTab == 0) {
@@ -126,7 +128,7 @@ internal fun SettingsPanel(config: WorkoutConfig, state: WorkoutState, voice: Vo
                     if (!breathing) PhraseField(R.string.encourage_phrase, encouragement, enabled) { encouragement = it; message = 0 }
                     PhraseField(R.string.finish_phrase, finish, enabled) { finish = it; message = 0 }
                 }
-                if (state.phase != Phase.READY) Text(stringResource(when (voice) {
+                if (state.phase != Phase.READY && voice != VoiceStatus.ERROR) Text(stringResource(when (voice) {
                     VoiceStatus.LOADING -> R.string.tts_loading
                     VoiceStatus.READY -> R.string.tts_ready
                     VoiceStatus.ERROR -> R.string.tts_error
